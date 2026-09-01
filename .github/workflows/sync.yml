@@ -26,6 +26,7 @@ jobs:
       - run: pip install -r requirements.txt
 
       - name: Sync prices and stock
+        continue-on-error: true
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
@@ -33,6 +34,7 @@ jobs:
         run: python visions_sync.py sync --attribute-name "sizes" --skip-sold-out
 
       - name: Clean supplier branding
+        continue-on-error: true
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
