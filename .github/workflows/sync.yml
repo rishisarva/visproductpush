@@ -15,7 +15,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -25,6 +25,8 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # Prices, stock and sizes. A few product failures are normal on shared
+      # hosting, so this never blocks the cleanup that follows.
       - name: Sync prices and stock
         continue-on-error: true
         env:
@@ -33,6 +35,7 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
         run: python visions_sync.py sync --attribute-name "sizes" --skip-sold-out
 
+      # Find and remove supplier branding on any new or changed images.
       - name: Clean supplier branding
         continue-on-error: true
         env:
@@ -41,12 +44,14 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-               run: python pipeline.py auto --max-products 250 --recheck --explain --dry-run
+        run: python pipeline.py auto --max-products 250
 
+      # Save the dashboard and the record of what changed.
       - name: Save results
         run: |
           git config user.name  "sync bot"
           git config user.email "actions@github.com"
           git add -A state docs
           git diff --staged --quiet || git commit -m "run $(date -u '+%Y-%m-%d %H:%M')"
+          git pull --rebase --autostash || true
           git push
