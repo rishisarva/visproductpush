@@ -66,6 +66,7 @@ def load_state() -> dict:
     state.setdefault("runs", [])
     state.setdefault("products", {})
     state.setdefault("skip", [])
+    state.setdefault("checked", {})     # pid -> {"at":..., "fingerprint":...}
     return state
 
 
@@ -109,19 +110,41 @@ def cmd_auto(args) -> int:
            "images": 0, "errors": 0, "skipped": len(skip)}
     changed_products: list[dict] = []
 
-    for product in products:
+    # Work through the catalogue in small batches. The host throttles image
+    # downloads hard, so a run that tries all 180 products spends most of its
+    # time being refused. Products never checked come first, then the oldest.
+    def sort_key(p):
+        pid = str(p["id"])
+        seen = state["checked"].get(pid, {})
+        return (1 if seen else 0, seen.get("at", ""))
+
+    queue = []
+    for p in products:
+        pid = str(p["id"])
+        if pid in skip or not p.get("images"):
+            continue
+        fingerprint = ",".join(str(i.get("id")) for i in p.get("images", []))
+        seen = state["checked"].get(pid)
+        if seen and seen.get("fingerprint") == fingerprint:
+            continue                    # unchanged since we last looked
+        queue.append(p)
+
+    queue.sort(key=sort_key)
+    total_pending = len(queue)
+    if args.max_products:
+        queue = queue[:args.max_products]
+
+    print(f"{total_pending} products need checking, doing {len(queue)} this run")
+    run["pending"] = total_pending
+
+    for product in queue:
         pid = str(product["id"])
         name = product.get("name", "")
-
-        if pid in skip:
-            continue
 
         record = state["products"].get(pid, {})
         already = {int(k) for k in record.get("cleaned_indexes", [])}
 
         images = product.get("images", [])
-        if not images:
-            continue
         run["checked"] += 1
 
         new_list: list[dict] = []
@@ -188,6 +211,12 @@ def cmd_auto(args) -> int:
                     new_list.append({"id": media_id})
 
             time.sleep(args.delay)
+
+        if not args.dry_run:
+            state["checked"][pid] = {
+                "at": now_iso(),
+                "fingerprint": ",".join(str(i.get("id")) for i in images),
+            }
 
         if not edits:
             continue
@@ -453,6 +482,9 @@ def build_dashboard(state: dict) -> None:
   <div class=stat><b>{last.get('images',0)}</b><span>images</span></div>
   <div class=stat><b>{last.get('errors',0)}</b><span>errors</span></div>
 </div>
+<div class=stats>
+  <div class=stat><b>{last.get('pending',0)}</b><span>still to check</span></div>
+</div>
 
 <h2>Recently cleaned</h2>
 {''.join(cards) if cards else '<div class=card>Nothing cleaned yet.</div>'}
@@ -498,12 +530,15 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--wc-secret", default=os.getenv("WC_SECRET", ""))
         sp.add_argument("--wp-user", default=os.getenv("WP_USER", ""))
         sp.add_argument("--wp-password", default=os.getenv("WP_APP_PASSWORD", ""))
-        sp.add_argument("--delay", type=float, default=0.4)
+        sp.add_argument("--delay", type=float, default=1.5)
 
     a = sub.add_parser("auto", help="Find and clean branding, unattended")
     common(a)
     a.add_argument("--strict", type=float, default=1.0,
                    help="Above 1.0 is fussier and edits less")
+    a.add_argument("--max-products", type=int, default=25,
+                   help="Products to inspect per run. Small keeps runs short "
+                        "and stays under the host's rate limits.")
     a.add_argument("--dry-run", action="store_true")
 
     for name, help_text in (("revert", "Put the original images back"),
