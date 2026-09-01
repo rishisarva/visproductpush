@@ -117,6 +117,124 @@
     "22474",
     "22465"
    ]
+  },
+  {
+   "at": "2026-09-01 21:58 UTC",
+   "checked": 183,
+   "edited": 107,
+   "images": 140,
+   "errors": 1,
+   "skipped": 0,
+   "pending": 183,
+   "changed": [
+    "24021",
+    "23992",
+    "23981",
+    "23962",
+    "23911",
+    "23904",
+    "23862",
+    "23812",
+    "23791",
+    "23767",
+    "23762",
+    "23757",
+    "23719",
+    "23709",
+    "23700",
+    "23662",
+    "23622",
+    "23611",
+    "23602",
+    "23593",
+    "23583",
+    "23572",
+    "23532",
+    "23522",
+    "23513",
+    "23495",
+    "23484",
+    "23468",
+    "23443",
+    "23433",
+    "23423",
+    "23414",
+    "23406",
+    "23397",
+    "23387",
+    "23378",
+    "23369",
+    "23352",
+    "23343",
+    "23334",
+    "23324",
+    "23309",
+    "23301",
+    "23294",
+    "23284",
+    "23272",
+    "23263",
+    "23256",
+    "23224",
+    "23216",
+    "23208",
+    "23180",
+    "23169",
+    "23136",
+    "23120",
+    "23095",
+    "23086",
+    "23077",
+    "23005",
+    "22967",
+    "22958",
+    "22943",
+    "22936",
+    "22921",
+    "22914",
+    "22906",
+    "22897",
+    "22872",
+    "22863",
+    "22854",
+    "22847",
+    "22833",
+    "22826",
+    "22818",
+    "22810",
+    "22784",
+    "22767",
+    "22759",
+    "22751",
+    "22744",
+    "22736",
+    "22708",
+    "22698",
+    "22689",
+    "22681",
+    "22667",
+    "22659",
+    "22651",
+    "22643",
+    "22627",
+    "22619",
+    "22609",
+    "22598",
+    "22587",
+    "22580",
+    "22564",
+    "22555",
+    "22537",
+    "22528",
+    "22511",
+    "22491",
+    "22465",
+    "22457",
+    "22449",
+    "22440",
+    "22430",
+    "22412"
+   ]
   }
  ],
  "products": {
@@ -297,6 +415,7 @@
    ],
    "cleaned_indexes": [
     0,
+    1,
     2
    ],
    "edits": [
@@ -311,9 +430,15 @@
      "old": 23934,
      "new": 24173,
      "reason": "logo (w/h 16.5, ink 67%)"
+    },
+    {
+     "i": 1,
+     "old": 23933,
+     "new": 24314,
+     "reason": "logo (w/h 10.8, ink 15%)"
     }
    ],
-   "last": "2026-09-01 21:14 UTC"
+   "last": "2026-09-01 21:59 UTC"
   },
   "23904": {
    "name": "ASTON 2019-20 HOME KIT GREALISH EMBROIDERY",
@@ -326,6 +451,7 @@
    ],
    "cleaned_indexes": [
     0,
+    1,
     2
    ],
    "edits": [
@@ -340,9 +466,15 @@
      "old": 23903,
      "new": 24175,
      "reason": "logo (w/h 41.4, ink 47%)"
+    },
+    {
+     "i": 1,
+     "old": 23902,
+     "new": 24315,
+     "reason": "logo (w/h 23.9, ink 17%)"
     }
    ],
-   "last": "2026-09-01 21:15 UTC"
+   "last": "2026-09-01 21:59 UTC"
   },
   "23898": {
    "name": "ATLETICO MADRID WONDER WOMEN SPECIAL EDITION KIT GRIEZMANN EMBROIDERY",
@@ -463,7 +595,8 @@
    ],
    "cleaned_indexes": [
     0,
-    1
+    1,
+    2
    ],
    "edits": [
     {
@@ -477,9 +610,15 @@
      "old": 23860,
      "new": 24187,
      "reason": "logo (w/h 2.2, ink 73%)"
+    },
+    {
+     "i": 2,
+     "old": 23861,
+     "new": 24316,
+     "reason": "logo (w/h 2.4, ink 75%)"
     }
    ],
-   "last": "2026-09-01 21:17 UTC"
+   "last": "2026-09-01 21:59 UTC"
   },
   "23852": {
    "name": "F1 MERCEDES PETRONAS BLACK POLO PREMIUM",
@@ -590,7 +729,8 @@
     23811
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -598,9 +738,15 @@
      "old": 23809,
      "new": 24194,
      "reason": "logo (w/h 10.1, ink 29%)"
+    },
+    {
+     "i": 2,
+     "old": 23811,
+     "new": 24317,
+     "reason": "logo (w/h 7.5, ink 36%)"
     }
    ],
-   "last": "2026-09-01 21:18 UTC"
+   "last": "2026-09-01 21:59 UTC"
   },
   "23805": {
    "name": "NFL LWMONEY FIVESLEEVE BLUE",
@@ -668,7 +814,9 @@
     23790
    ],
    "cleaned_indexes": [
-    1
+    0,
+    1,
+    2
    ],
    "edits": [
     {
@@ -676,9 +824,21 @@
      "old": 23789,
      "new": 24199,
      "reason": "logo (w/h 19.8, ink 16%)"
+    },
+    {
+     "i": 0,
+     "old": 23788,
+     "new": 24318,
+     "reason": "logo (w/h 8.8, ink 37%)"
+    },
+    {
+     "i": 2,
+     "old": 23790,
+     "new": 24319,
+     "reason": "logo (w/h 10.9, ink 60%)"
     }
    ],
-   "last": "2026-09-01 21:19 UTC"
+   "last": "2026-09-01 22:00 UTC"
   },
   "23781": {
    "name": "PORTUGAL 25-26 BLACK KIT RONALDO POLO EMBROIDERY PREMIUM",
@@ -754,7 +914,9 @@
     23761
    ],
    "cleaned_indexes": [
-    1
+    0,
+    1,
+    2
    ],
    "edits": [
     {
@@ -762,9 +924,21 @@
      "old": 23760,
      "new": 24205,
      "reason": "logo (w/h 26.0, ink 13%)"
+    },
+    {
+     "i": 0,
+     "old": 23759,
+     "new": 24321,
+     "reason": "logo (w/h 8.4, ink 45%)"
+    },
+    {
+     "i": 2,
+     "old": 23761,
+     "new": 24322,
+     "reason": "logo (w/h 8.6, ink 46%)"
     }
    ],
-   "last": "2026-09-01 21:20 UTC"
+   "last": "2026-09-01 22:00 UTC"
   },
   "23757": {
    "name": "VALENCIA 2006 AWAY KIT DAVID VILLA EMBROIERY",
@@ -777,6 +951,7 @@
    ],
    "cleaned_indexes": [
     0,
+    1,
     2
    ],
    "edits": [
@@ -791,9 +966,15 @@
      "old": 23953,
      "new": 24207,
      "reason": "logo (w/h 26.7, ink 46%)"
+    },
+    {
+     "i": 1,
+     "old": 23952,
+     "new": 24323,
+     "reason": "logo (w/h 19.0, ink 29%)"
     }
    ],
-   "last": "2026-09-01 21:20 UTC"
+   "last": "2026-09-01 22:01 UTC"
   },
   "23747": {
    "name": "LIVERPOOL 1989-90 HOME KIT EMBROIDERY PREMIUM",
@@ -857,7 +1038,9 @@
     23718
    ],
    "cleaned_indexes": [
-    1
+    0,
+    1,
+    3
    ],
    "edits": [
     {
@@ -865,9 +1048,21 @@
      "old": 23716,
      "new": 24211,
      "reason": "logo (w/h 4.6, ink 12%)"
+    },
+    {
+     "i": 0,
+     "old": 23715,
+     "new": 24324,
+     "reason": "logo (w/h 4.0, ink 39%)"
+    },
+    {
+     "i": 3,
+     "old": 23718,
+     "new": 24325,
+     "reason": "logo (w/h 2.5, ink 67%)"
     }
    ],
-   "last": "2026-09-01 21:21 UTC"
+   "last": "2026-09-01 22:01 UTC"
   },
   "23709": {
    "name": "BAYERN 2013-14 THIRD KIT KROOS EMBROIDERY PREMIUM",
@@ -879,7 +1074,8 @@
     23708
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -887,9 +1083,15 @@
      "old": 23706,
      "new": 24212,
      "reason": "logo (w/h 13.9, ink 45%)"
+    },
+    {
+     "i": 2,
+     "old": 23708,
+     "new": 24326,
+     "reason": "logo (w/h 10.7, ink 49%)"
     }
    ],
-   "last": "2026-09-01 21:22 UTC"
+   "last": "2026-09-01 22:01 UTC"
   },
   "23700": {
    "name": "OLYMPIQUE LYONNAIS 2007-08 THIRD KIT JUNINHO EMBROIDERY PREMIUM",
@@ -901,7 +1103,8 @@
     23699
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -909,9 +1112,15 @@
      "old": 23697,
      "new": 24213,
      "reason": "logo (w/h 18.6, ink 39%)"
+    },
+    {
+     "i": 2,
+     "old": 23699,
+     "new": 24327,
+     "reason": "logo (w/h 12.5, ink 54%)"
     }
    ],
-   "last": "2026-09-01 21:22 UTC"
+   "last": "2026-09-01 22:01 UTC"
   },
   "23680": {
    "name": "JUVENTUS 1995-96 HOME KIT DEL PIERO POLO EMBROIDERY PREMIUM",
@@ -998,7 +1207,9 @@
     23610
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1,
+    2
    ],
    "edits": [
     {
@@ -1006,9 +1217,21 @@
      "old": 23608,
      "new": 24218,
      "reason": "logo (w/h 6.3, ink 34%)"
+    },
+    {
+     "i": 1,
+     "old": 23609,
+     "new": 24333,
+     "reason": "logo (w/h 4.2, ink 11%)"
+    },
+    {
+     "i": 2,
+     "old": 23610,
+     "new": 24334,
+     "reason": "logo (w/h 2.5, ink 73%)"
     }
    ],
-   "last": "2026-09-01 21:23 UTC"
+   "last": "2026-09-01 22:02 UTC"
   },
   "23602": {
    "name": "CROATIA 2026 AWAY KIT MODRIC",
@@ -1019,7 +1242,8 @@
     23601
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1
    ],
    "edits": [
     {
@@ -1027,9 +1251,15 @@
      "old": 23600,
      "new": 24219,
      "reason": "logo (w/h 15.8, ink 41%)"
+    },
+    {
+     "i": 1,
+     "old": 23601,
+     "new": 24335,
+     "reason": "logo (w/h 10.6, ink 59%)"
     }
    ],
-   "last": "2026-09-01 21:23 UTC"
+   "last": "2026-09-01 22:03 UTC"
   },
   "23593": {
    "name": "PORTUGAL 2026 HOME KIT RONALDO EMBROIDERY PREMIUM",
@@ -1041,7 +1271,8 @@
     23592
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -1049,9 +1280,15 @@
      "old": 23590,
      "new": 24220,
      "reason": "logo (w/h 19.1, ink 35%)"
+    },
+    {
+     "i": 2,
+     "old": 23592,
+     "new": 24336,
+     "reason": "logo (w/h 12.3, ink 62%)"
     }
    ],
-   "last": "2026-09-01 21:23 UTC"
+   "last": "2026-09-01 22:03 UTC"
   },
   "23572": {
    "name": "MUMBAI INDIANS 2026 KIT ROHIT POLO PREMIUM",
@@ -1064,7 +1301,8 @@
     23571
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -1072,9 +1310,15 @@
      "old": 23568,
      "new": 24221,
      "reason": "logo (w/h 5.2, ink 26%)"
+    },
+    {
+     "i": 2,
+     "old": 23570,
+     "new": 24338,
+     "reason": "logo (w/h 8.7, ink 13%)"
     }
    ],
-   "last": "2026-09-01 21:23 UTC"
+   "last": "2026-09-01 22:03 UTC"
   },
   "23562": {
    "name": "MUMBAI INDIANS 2026 KIT ROHIT POLO EMBROIDERY PREMIUM",
@@ -1145,7 +1389,8 @@
     23531
    ],
    "cleaned_indexes": [
-    0
+    0,
+    3
    ],
    "edits": [
     {
@@ -1153,9 +1398,15 @@
      "old": 23528,
      "new": 24226,
      "reason": "logo (w/h 13.9, ink 41%)"
+    },
+    {
+     "i": 3,
+     "old": 23531,
+     "new": 24339,
+     "reason": "logo (w/h 12.0, ink 56%)"
     }
    ],
-   "last": "2026-09-01 21:24 UTC"
+   "last": "2026-09-01 22:03 UTC"
   },
   "23495": {
    "name": "ARGENTINA 2026 HOME KIT MESSI EMBROIDERY PREMIUM",
@@ -1168,7 +1419,9 @@
     23494
    ],
    "cleaned_indexes": [
-    2
+    0,
+    2,
+    3
    ],
    "edits": [
     {
@@ -1176,9 +1429,21 @@
      "old": 23493,
      "new": 24227,
      "reason": "logo (w/h 5.4, ink 41%)"
+    },
+    {
+     "i": 0,
+     "old": 23491,
+     "new": 24342,
+     "reason": "logo (w/h 11.1, ink 31%)"
+    },
+    {
+     "i": 3,
+     "old": 23494,
+     "new": 24343,
+     "reason": "logo (w/h 11.7, ink 32%)"
     }
    ],
-   "last": "2026-09-01 21:24 UTC"
+   "last": "2026-09-01 22:04 UTC"
   },
   "23460": {
    "name": "BRAZIL 2026 HOME KIT NEYMER",
@@ -1248,7 +1513,8 @@
    ],
    "cleaned_indexes": [
     0,
-    2
+    2,
+    3
    ],
    "edits": [
     {
@@ -1262,9 +1528,15 @@
      "old": 23367,
      "new": 24233,
      "reason": "logo (w/h 21.8, ink 40%)"
+    },
+    {
+     "i": 3,
+     "old": 23368,
+     "new": 24358,
+     "reason": "logo (w/h 32.7, ink 35%)"
     }
    ],
-   "last": "2026-09-01 21:25 UTC"
+   "last": "2026-09-01 22:07 UTC"
   },
   "23360": {
    "name": "TSHIRT FRANCE WHITE FIVESLEEVE EMBROIDERY",
@@ -1298,7 +1570,8 @@
     23342
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -1306,9 +1579,15 @@
      "old": 23340,
      "new": 24235,
      "reason": "logo (w/h 19.6, ink 39%)"
+    },
+    {
+     "i": 2,
+     "old": 23342,
+     "new": 24360,
+     "reason": "logo (w/h 11.7, ink 60%)"
     }
    ],
-   "last": "2026-09-01 21:26 UTC"
+   "last": "2026-09-01 22:07 UTC"
   },
   "23334": {
    "name": "NORWAY 2026 HOME KIT HAALAND EMBROIDERY PREMIUM",
@@ -1320,6 +1599,7 @@
     23333
    ],
    "cleaned_indexes": [
+    0,
     2
    ],
    "edits": [
@@ -1328,9 +1608,15 @@
      "old": 23333,
      "new": 24236,
      "reason": "logo (w/h 11.8, ink 36%)"
+    },
+    {
+     "i": 0,
+     "old": 23331,
+     "new": 24361,
+     "reason": "logo (w/h 10.4, ink 37%)"
     }
    ],
-   "last": "2026-09-01 21:26 UTC"
+   "last": "2026-09-01 22:07 UTC"
   },
   "23316": {
    "name": "ARSANEL 26-27 HOME KIT SAKA",
@@ -1362,6 +1648,7 @@
     23262
    ],
    "cleaned_indexes": [
+    0,
     1
    ],
    "edits": [
@@ -1370,9 +1657,15 @@
      "old": 23262,
      "new": 24238,
      "reason": "logo (w/h 4.8, ink 47%)"
+    },
+    {
+     "i": 0,
+     "old": 23261,
+     "new": 24370,
+     "reason": "logo (w/h 3.7, ink 22%)"
     }
    ],
-   "last": "2026-09-01 21:27 UTC"
+   "last": "2026-09-01 22:09 UTC"
   },
   "23224": {
    "name": "LOS ANGELES LAKERS KOBE BRYANT JERSEY SLEEVELESS PREMIUM",
@@ -1383,7 +1676,8 @@
     23223
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1
    ],
    "edits": [
     {
@@ -1391,9 +1685,15 @@
      "old": 23222,
      "new": 24239,
      "reason": "logo (w/h 4.6, ink 13%)"
+    },
+    {
+     "i": 1,
+     "old": 23223,
+     "new": 24372,
+     "reason": "logo (w/h 10.7, ink 47%)"
     }
    ],
-   "last": "2026-09-01 21:27 UTC"
+   "last": "2026-09-01 22:10 UTC"
   },
   "23216": {
    "name": "CHICAGO BULLS MICHEAL JORDAN 23 JERSEY SLEEVELESS PREMIUM",
@@ -1404,7 +1704,8 @@
     23215
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1
    ],
    "edits": [
     {
@@ -1412,9 +1713,15 @@
      "old": 23214,
      "new": 24240,
      "reason": "logo (w/h 13.2, ink 32%)"
+    },
+    {
+     "i": 1,
+     "old": 23215,
+     "new": 24373,
+     "reason": "logo (w/h 15.0, ink 73%)"
     }
    ],
-   "last": "2026-09-01 21:27 UTC"
+   "last": "2026-09-01 22:10 UTC"
   },
   "23200": {
    "name": "CHICAGO BULLS 1997-98 RED JERSEY JORDAN 23 PREMIUM",
@@ -1555,7 +1862,8 @@
     23076
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -1563,9 +1871,15 @@
      "old": 23074,
      "new": 24249,
      "reason": "logo (w/h 14.6, ink 49%)"
+    },
+    {
+     "i": 2,
+     "old": 23076,
+     "new": 24382,
+     "reason": "logo (w/h 5.4, ink 52%)"
     }
    ],
-   "last": "2026-09-01 21:29 UTC"
+   "last": "2026-09-01 22:12 UTC"
   },
   "23068": {
    "name": "GERMANY BRINGBACK REMIXED SPECIAL EDITION JERSEY BECKENBAUER FIVESLEEVE EMBROIDERY",
@@ -1737,6 +2051,7 @@
     22862
    ],
    "cleaned_indexes": [
+    0,
     2
    ],
    "edits": [
@@ -1745,9 +2060,15 @@
      "old": 22862,
      "new": 24261,
      "reason": "logo (w/h 16.9, ink 40%)"
+    },
+    {
+     "i": 0,
+     "old": 22860,
+     "new": 24398,
+     "reason": "logo (w/h 11.4, ink 35%)"
     }
    ],
-   "last": "2026-09-01 21:31 UTC"
+   "last": "2026-09-01 22:15 UTC"
   },
   "22759": {
    "name": "BARCELONA 2003-04 AWAY KIT MESSI POLO EMBROIDERY PREMIUM",
@@ -1759,7 +2080,8 @@
     22758
    ],
    "cleaned_indexes": [
-    0
+    0,
+    2
    ],
    "edits": [
     {
@@ -1767,9 +2089,15 @@
      "old": 22756,
      "new": 24262,
      "reason": "logo (w/h 6.5, ink 38%)"
+    },
+    {
+     "i": 2,
+     "old": 22758,
+     "new": 24412,
+     "reason": "logo (w/h 3.7, ink 65%)"
     }
    ],
-   "last": "2026-09-01 21:32 UTC"
+   "last": "2026-09-01 22:17 UTC"
   },
   "22681": {
    "name": "MANCHESTER UNITED 26-27 HOME KIT CUNHA FIVESLEEVE POLO",
@@ -1780,6 +2108,7 @@
     23956
    ],
    "cleaned_indexes": [
+    0,
     1
    ],
    "edits": [
@@ -1788,9 +2117,15 @@
      "old": 23956,
      "new": 24263,
      "reason": "logo (w/h 18.8, ink 38%)"
+    },
+    {
+     "i": 0,
+     "old": 22679,
+     "new": 24420,
+     "reason": "logo (w/h 11.6, ink 58%)"
     }
    ],
-   "last": "2026-09-01 21:32 UTC"
+   "last": "2026-09-01 22:18 UTC"
   },
   "22674": {
    "name": "LIVERPOOL 26-27 HOME KIT MAC ALLISTER OVERSIZED POLO FULLSLEEVE",
@@ -1829,7 +2164,8 @@
     22658
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1
    ],
    "edits": [
     {
@@ -1837,9 +2173,15 @@
      "old": 22657,
      "new": 24266,
      "reason": "logo (w/h 11.9, ink 29%)"
+    },
+    {
+     "i": 1,
+     "old": 22658,
+     "new": 24422,
+     "reason": "logo (w/h 14.5, ink 46%)"
     }
    ],
-   "last": "2026-09-01 21:32 UTC"
+   "last": "2026-09-01 22:19 UTC"
   },
   "22651": {
    "name": "ALNASSR 26-27 HOME KIT RONALDO",
@@ -1850,6 +2192,7 @@
     22650
    ],
    "cleaned_indexes": [
+    0,
     1
    ],
    "edits": [
@@ -1858,9 +2201,15 @@
      "old": 22650,
      "new": 24267,
      "reason": "logo (w/h 18.3, ink 39%)"
+    },
+    {
+     "i": 0,
+     "old": 22649,
+     "new": 24423,
+     "reason": "logo (w/h 10.8, ink 49%)"
     }
    ],
-   "last": "2026-09-01 21:33 UTC"
+   "last": "2026-09-01 22:19 UTC"
   },
   "22635": {
    "name": "BAYERN MUNICH 26-27 HOME KIT KANE",
@@ -1995,7 +2344,8 @@
     23958
    ],
    "cleaned_indexes": [
-    0
+    0,
+    1
    ],
    "edits": [
     {
@@ -2003,745 +2353,2644 @@
      "old": 22463,
      "new": 24275,
      "reason": "logo (w/h 14.2, ink 32%)"
+    },
+    {
+     "i": 1,
+     "old": 23958,
+     "new": 24442,
+     "reason": "logo (w/h 14.8, ink 10%)"
     }
    ],
-   "last": "2026-09-01 21:34 UTC"
+   "last": "2026-09-01 22:22 UTC"
+  },
+  "24021": {
+   "name": "ARGENTINA 2026 AWAY KIT MESSI FULLSLEEVE EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/argentina-2026-away-kit-messi-fullsleeve-embroidery-premium/",
+   "sku": "TS-argentina-2026-away-kit-messi-fullsleeve-embroidery-premium-1",
+   "original_images": [
+    24018,
+    24019,
+    24020
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 24018,
+     "new": 24309,
+     "reason": "logo (w/h 14.7, ink 31%)"
+    }
+   ],
+   "last": "2026-09-01 21:58 UTC"
+  },
+  "23992": {
+   "name": "BARCELONA 26-27 HOME KIT CUBARSI EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-home-kit-cubarsi-embroidery-premium/",
+   "sku": "TS-barcelona-26-27-home-kit-cubarsi-embroidery-premium",
+   "original_images": [
+    23988,
+    23989,
+    23990,
+    23991
+   ],
+   "cleaned_indexes": [
+    3
+   ],
+   "edits": [
+    {
+     "i": 3,
+     "old": 23991,
+     "new": 24310,
+     "reason": "logo (w/h 19.2, ink 50%)"
+    }
+   ],
+   "last": "2026-09-01 21:58 UTC"
+  },
+  "23981": {
+   "name": "MANCHESTER UNITED 2007-08 AWAY KIT RONALDO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/manchester-united-2007-08-away-kit-ronaldo-embroidery-premium/",
+   "sku": "TS-manchester-united-2007-08-away-kit-ronaldo-embroidery-premium",
+   "original_images": [
+    23978,
+    23979,
+    23980
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23980,
+     "new": 24311,
+     "reason": "logo (w/h 13.1, ink 35%)"
+    }
+   ],
+   "last": "2026-09-01 21:58 UTC"
+  },
+  "23962": {
+   "name": "ARGENTINA 2006 HOME KIT MESSI EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/argentina-2006-home-kit-messi-embroidery-premium/",
+   "sku": "TS-argentina-2006-home-kit-messi-embroidery-premium-1",
+   "original_images": [
+    23959,
+    23960,
+    23961
+   ],
+   "cleaned_indexes": [
+    1,
+    2
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23960,
+     "new": 24312,
+     "reason": "logo (w/h 114.0, ink 63%)"
+    },
+    {
+     "i": 2,
+     "old": 23961,
+     "new": 24313,
+     "reason": "logo (w/h 2.9, ink 12%)"
+    }
+   ],
+   "last": "2026-09-01 21:59 UTC"
+  },
+  "23767": {
+   "name": "SAO PAULO 2001 HOME KIT KAKA FIVESLEEVE",
+   "url": "https://visionsjersey.com/product/sao-paulo-2001-home-kit-kaka-fivesleeve/",
+   "sku": "TS-sao-paulo-2001-home-kit-kaka-fivesleeve",
+   "original_images": [
+    23765,
+    23766
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23765,
+     "new": 24320,
+     "reason": "logo (w/h 12.8, ink 51%)"
+    }
+   ],
+   "last": "2026-09-01 22:00 UTC"
+  },
+  "23662": {
+   "name": "JUVENTUS 2005-06 HOME KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/juventus-2005-06-home-kit-embroidery-premium/",
+   "sku": "TS-juventus-2005-06-home-kit-embroidery-premium",
+   "original_images": [
+    23658,
+    23659,
+    23661
+   ],
+   "cleaned_indexes": [
+    0,
+    1,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23658,
+     "new": 24328,
+     "reason": "logo (w/h 16.2, ink 46%)"
+    },
+    {
+     "i": 1,
+     "old": 23659,
+     "new": 24329,
+     "reason": "logo (w/h 26.7, ink 12%)"
+    },
+    {
+     "i": 2,
+     "old": 23661,
+     "new": 24330,
+     "reason": "logo (w/h 8.1, ink 44%)"
+    }
+   ],
+   "last": "2026-09-01 22:02 UTC"
+  },
+  "23622": {
+   "name": "JUVENTUS 2008-09 HOME KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/juventus-2008-09-home-kit-embroidery-premium/",
+   "sku": "TS-juventus-2008-09-home-kit-embroidery-premium",
+   "original_images": [
+    23618,
+    23619,
+    23620,
+    23621
+   ],
+   "cleaned_indexes": [
+    0,
+    3
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23618,
+     "new": 24331,
+     "reason": "logo (w/h 15.6, ink 47%)"
+    },
+    {
+     "i": 3,
+     "old": 23621,
+     "new": 24332,
+     "reason": "logo (w/h 9.2, ink 47%)"
+    }
+   ],
+   "last": "2026-09-01 22:02 UTC"
+  },
+  "23583": {
+   "name": "PORTUGAL 2026 AWAY KIT RONALDO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/portugal-2026-away-kit-ronaldo-embroidery-premium/",
+   "sku": "TS-portugal-2026-away-kit-ronaldo-embroidery-premium-1",
+   "original_images": [
+    23579,
+    23580,
+    23581,
+    23582
+   ],
+   "cleaned_indexes": [
+    3
+   ],
+   "edits": [
+    {
+     "i": 3,
+     "old": 23582,
+     "new": 24337,
+     "reason": "logo (w/h 12.3, ink 58%)"
+    }
+   ],
+   "last": "2026-09-01 22:03 UTC"
+  },
+  "23522": {
+   "name": "COLUMBIA 2026 AWAY KIT LUIS DIAZ",
+   "url": "https://visionsjersey.com/product/columbia-2026-away-kit-luis-diaz/",
+   "sku": "TS-columbia-2026-away-kit-luis-diaz",
+   "original_images": [
+    23520,
+    23521
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23521,
+     "new": 24340,
+     "reason": "logo (w/h 18.3, ink 38%)"
+    }
+   ],
+   "last": "2026-09-01 22:04 UTC"
+  },
+  "23513": {
+   "name": "LIVERPOOL 1995 BLACK KIT POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/liverpool-1995-black-kit-polo-embroidery-premium/",
+   "sku": "TS-liverpool-1995-black-kit-polo-embroidery-premium",
+   "original_images": [
+    23510,
+    23511,
+    23512
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23510,
+     "new": 24341,
+     "reason": "logo (w/h 10.5, ink 57%)"
+    }
+   ],
+   "last": "2026-09-01 22:04 UTC"
+  },
+  "23484": {
+   "name": "URUGUAY 2026 AWAY KIT VALVERDE EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/uruguay-2026-away-kit-valverde-embroidery-premium/",
+   "sku": "TS-uruguay-2026-away-kit-valverde-embroidery-premium",
+   "original_images": [
+    23481,
+    23482,
+    23483
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23481,
+     "new": 24344,
+     "reason": "logo (w/h 14.1, ink 36%)"
+    },
+    {
+     "i": 2,
+     "old": 23483,
+     "new": 24345,
+     "reason": "logo (w/h 14.2, ink 37%)"
+    }
+   ],
+   "last": "2026-09-01 22:04 UTC"
+  },
+  "23468": {
+   "name": "ARGENTINA 2026 AWAY KIT MESSI",
+   "url": "https://visionsjersey.com/product/argentina-2026-away-kit-messi/",
+   "sku": "TS-argentina-2026-away-kit-messi-1",
+   "original_images": [
+    23466,
+    23467
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23466,
+     "new": 24346,
+     "reason": "logo (w/h 14.7, ink 29%)"
+    },
+    {
+     "i": 1,
+     "old": 23467,
+     "new": 24347,
+     "reason": "logo (w/h 17.0, ink 43%)"
+    }
+   ],
+   "last": "2026-09-01 22:05 UTC"
+  },
+  "23443": {
+   "name": "CROATIA 2026 AWAY KIT MODRIC EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/croatia-2026-away-kit-modric-embroidery-premium/",
+   "sku": "TS-croatia-2026-away-kit-modric-embroidery-premium",
+   "original_images": [
+    23440,
+    23441,
+    23442
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23440,
+     "new": 24348,
+     "reason": "logo (w/h 10.2, ink 42%)"
+    },
+    {
+     "i": 2,
+     "old": 23442,
+     "new": 24349,
+     "reason": "logo (w/h 14.8, ink 52%)"
+    }
+   ],
+   "last": "2026-09-01 22:05 UTC"
+  },
+  "23433": {
+   "name": "JAPAN 2026 AWAY KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/japan-2026-away-kit-embroidery-premium/",
+   "sku": "TS-japan-2026-away-kit-embroidery-premium-1",
+   "original_images": [
+    23430,
+    23431,
+    23432
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23430,
+     "new": 24350,
+     "reason": "logo (w/h 6.5, ink 48%)"
+    },
+    {
+     "i": 2,
+     "old": 23432,
+     "new": 24351,
+     "reason": "logo (w/h 7.9, ink 53%)"
+    }
+   ],
+   "last": "2026-09-01 22:05 UTC"
+  },
+  "23423": {
+   "name": "ARGENTINA 2026 TRAINING KIT MESSI POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/argentina-2026-training-kit-messi-polo-embroidery-premium/",
+   "sku": "TS-argentina-2026-training-kit-messi-polo-embroidery-premium",
+   "original_images": [
+    23420,
+    23421,
+    23422
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23422,
+     "new": 24352,
+     "reason": "logo (w/h 7.8, ink 68%)"
+    }
+   ],
+   "last": "2026-09-01 22:06 UTC"
+  },
+  "23414": {
+   "name": "GERMANY 2026 AWAY KIT MUSIALA",
+   "url": "https://visionsjersey.com/product/germany-2026-away-kit-musiala/",
+   "sku": "TS-germany-2026-away-kit-musiala",
+   "original_images": [
+    23412,
+    23413
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23412,
+     "new": 24353,
+     "reason": "logo (w/h 9.2, ink 38%)"
+    }
+   ],
+   "last": "2026-09-01 22:06 UTC"
+  },
+  "23406": {
+   "name": "SOUTH AFRICA 2026 AWAY KIT POLO PREMIUM",
+   "url": "https://visionsjersey.com/?post_type=product&p=23406",
+   "sku": "TS-south-africa-2026-away-kit-polo-premium",
+   "original_images": [
+    23403,
+    23404,
+    23405
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23403,
+     "new": 24354,
+     "reason": "logo (w/h 6.8, ink 70%)"
+    }
+   ],
+   "last": "2026-09-01 22:06 UTC"
+  },
+  "23397": {
+   "name": "ARGENTINA 2026 HOME KIT MESSI FULLSLEEVE EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/argentina-2026-home-kit-messi-fullsleeve-embroidery-premium/",
+   "sku": "TS-argentina-2026-home-kit-messi-fullsleeve-embroidery-premium-1",
+   "original_images": [
+    23394,
+    23395,
+    23396
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23396,
+     "new": 24355,
+     "reason": "logo (w/h 16.6, ink 38%)"
+    }
+   ],
+   "last": "2026-09-01 22:06 UTC"
+  },
+  "23387": {
+   "name": "JAPAN 2026 HOME KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/japan-2026-home-kit-embroidery-premium/",
+   "sku": "TS-japan-2026-home-kit-embroidery-premium-1",
+   "original_images": [
+    23384,
+    23385,
+    23386
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23386,
+     "new": 24356,
+     "reason": "logo (w/h 18.3, ink 45%)"
+    }
+   ],
+   "last": "2026-09-01 22:06 UTC"
+  },
+  "23378": {
+   "name": "ARGENTINA 2026 HOME KIT MESSI",
+   "url": "https://visionsjersey.com/product/argentina-2026-home-kit-messi/",
+   "sku": "TS-argentina-2026-home-kit-messi-3",
+   "original_images": [
+    23376,
+    23377
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23376,
+     "new": 24357,
+     "reason": "logo (w/h 12.7, ink 34%)"
+    }
+   ],
+   "last": "2026-09-01 22:07 UTC"
+  },
+  "23352": {
+   "name": "TSHIRT GERMANY BLACK FIVESLEEVE EMBROIDERY",
+   "url": "https://visionsjersey.com/product/tshirt-germany-black-fivesleeve-embroidery/",
+   "sku": "TS-tshirt-germany-white-fivesleeve-embroidery",
+   "original_images": [
+    23349,
+    23350,
+    23351
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23351,
+     "new": 24359,
+     "reason": "logo (w/h 11.4, ink 43%)"
+    }
+   ],
+   "last": "2026-09-01 22:07 UTC"
+  },
+  "23324": {
+   "name": "ARGENTINA 2026 PREMATCH KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/argentina-2026-prematch-kit-embroidery-premium/",
+   "sku": "TS-argentina-2026-training-kit-embroidery-premium",
+   "original_images": [
+    23321,
+    23322,
+    23323
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23321,
+     "new": 24362,
+     "reason": "logo (w/h 12.0, ink 39%)"
+    },
+    {
+     "i": 2,
+     "old": 23323,
+     "new": 24363,
+     "reason": "logo (w/h 13.1, ink 44%)"
+    }
+   ],
+   "last": "2026-09-01 22:08 UTC"
+  },
+  "23309": {
+   "name": "CELTIC WHITE FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/celtic-white-fivesleeve-polo/",
+   "sku": "TS-celtic-white-fivesleeve-polo",
+   "original_images": [
+    23307,
+    23308
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23307,
+     "new": 24364,
+     "reason": "logo (w/h 26.2, ink 64%)"
+    }
+   ],
+   "last": "2026-09-01 22:08 UTC"
+  },
+  "23301": {
+   "name": "BARCELONA 2026 HOME KIT LAMINE YAMAL",
+   "url": "https://visionsjersey.com/product/barcelona-2026-home-kit-lamine-yamal/",
+   "sku": "TS-barcelona-2026-home-kit-lamine-yamal",
+   "original_images": [
+    23299,
+    23300
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23299,
+     "new": 24365,
+     "reason": "logo (w/h 13.5, ink 36%)"
+    }
+   ],
+   "last": "2026-09-01 22:08 UTC"
+  },
+  "23294": {
+   "name": "ENGLAND 1990 THIRD KIT TERRY FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/england-1990-third-kit-terry-fivesleeve-polo/",
+   "sku": "TS-england-1990-third-kit-terry-fivesleeve-polo",
+   "original_images": [
+    23292,
+    23293
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23292,
+     "new": 24366,
+     "reason": "logo (w/h 16.0, ink 70%)"
+    }
+   ],
+   "last": "2026-09-01 22:08 UTC"
+  },
+  "23284": {
+   "name": "REAL MADRID 26-27 HOME KIT MBAPPE EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/real-madrid-26-27-home-kit-mbappe-embroidery-premium/",
+   "sku": "TS-real-madrid-26-27-home-kit-mbappe-embroidert-premium",
+   "original_images": [
+    23280,
+    23281,
+    23282,
+    23283
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23280,
+     "new": 24367,
+     "reason": "logo (w/h 9.9, ink 56%)"
+    },
+    {
+     "i": 2,
+     "old": 23282,
+     "new": 24368,
+     "reason": "logo (w/h 6.3, ink 14%)"
+    }
+   ],
+   "last": "2026-09-01 22:09 UTC"
+  },
+  "23272": {
+   "name": "BARCELONA 26-27 HOME KIT YAMAL EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-home-kit-yamal-embroidery-premium/",
+   "sku": "TS-barcelona-26-27-home-kit-yamal-embroidery-premium",
+   "original_images": [
+    23268,
+    23269,
+    23270,
+    23271
+   ],
+   "cleaned_indexes": [
+    3
+   ],
+   "edits": [
+    {
+     "i": 3,
+     "old": 23271,
+     "new": 24369,
+     "reason": "logo (w/h 14.3, ink 46%)"
+    }
+   ],
+   "last": "2026-09-01 22:09 UTC"
+  },
+  "23256": {
+   "name": "ACMILAN 2019-20 THIRD KIT RONALDINHO FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/acmilan-2019-20-third-kit-ronaldinho-fivesleeve-polo/",
+   "sku": "TS-acmilan-2019-20-third-kit-ronaldinho-fivesleeve-polo",
+   "original_images": [
+    23254,
+    23255
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23255,
+     "new": 24371,
+     "reason": "logo (w/h 22.8, ink 48%)"
+    }
+   ],
+   "last": "2026-09-01 22:09 UTC"
+  },
+  "23208": {
+   "name": "BOSTON CELTICS O'NEAL 36 GREEN SLEEVELESS PREMIUM",
+   "url": "https://visionsjersey.com/product/boston-celtics-oneal-36-green-sleeveless-premium/",
+   "sku": "TS-boston-celtics-oneal-36-green-sleeveless-premium",
+   "original_images": [
+    23206,
+    23207
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23207,
+     "new": 24374,
+     "reason": "logo (w/h 11.1, ink 55%)"
+    }
+   ],
+   "last": "2026-09-01 22:10 UTC"
+  },
+  "23180": {
+   "name": "PORTUGAL GOAT SIU SPECIAL EDITION RONALDO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/portugal-goat-siu-special-edition-ronaldo-embroidery-premium/",
+   "sku": "TS-portugal-goat-siu-special-edition-ronaldo-embroidery-premium-1",
+   "original_images": [
+    23176,
+    23177,
+    23178,
+    23179
+   ],
+   "cleaned_indexes": [
+    0,
+    3
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23176,
+     "new": 24375,
+     "reason": "logo (w/h 12.1, ink 39%)"
+    },
+    {
+     "i": 3,
+     "old": 23179,
+     "new": 24376,
+     "reason": "logo (w/h 14.0, ink 46%)"
+    }
+   ],
+   "last": "2026-09-01 22:10 UTC"
+  },
+  "23169": {
+   "name": "SANTOS 2012-13 HOME KIT NEYMER EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/santos-2012-13-home-kit-neymer-embroidery-premium/",
+   "sku": "TS-santos-2012-13-home-kit-neymer-embroidery-premium",
+   "original_images": [
+    23166,
+    23167,
+    23168
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23166,
+     "new": 24377,
+     "reason": "logo (w/h 7.7, ink 21%)"
+    }
+   ],
+   "last": "2026-09-01 22:11 UTC"
+  },
+  "23136": {
+   "name": "ARGENTINA 2026 PREMATCH KIT MESSI",
+   "url": "https://visionsjersey.com/product/argentina-2026-prematch-kit-messi/",
+   "sku": "TS-argentina-2026-prematch-kit-messi",
+   "original_images": [
+    23134,
+    23135
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23135,
+     "new": 24378,
+     "reason": "logo (w/h 19.6, ink 39%)"
+    }
+   ],
+   "last": "2026-09-01 22:11 UTC"
+  },
+  "23120": {
+   "name": "LIVERPOOL 26-27 HOME KIT VIRGIL",
+   "url": "https://visionsjersey.com/product/liverpool-26-27-home-kit-virgil/",
+   "sku": "TS-liverpool-26-27-home-kit-virgil",
+   "original_images": [
+    23118,
+    23119
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 23119,
+     "new": 24379,
+     "reason": "logo (w/h 16.8, ink 42%)"
+    }
+   ],
+   "last": "2026-09-01 22:11 UTC"
+  },
+  "23095": {
+   "name": "JAPAN X ONE PIECE MONKEY D.LUFFY SPECIAL EDITION KIT EMBROIDERY",
+   "url": "https://visionsjersey.com/product/japan-x-one-piece-monkey-d-luffy-special-edition-kit-embroidery/",
+   "sku": "TS-japan-x-one-piece-monkey-d-luffy-special-edition-kit-embroidery-1",
+   "original_images": [
+    23092,
+    23093,
+    23094
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23094,
+     "new": 24380,
+     "reason": "logo (w/h 127.0, ink 9%)"
+    }
+   ],
+   "last": "2026-09-01 22:11 UTC"
+  },
+  "23086": {
+   "name": "SANTOS 2012 BLACK KIT NEYMER EMBROIDERY",
+   "url": "https://visionsjersey.com/product/santos-2012-black-kit-neymer-embroidery/",
+   "sku": "TS-santos-2012-black-kit-neymer-embroidery-2",
+   "original_images": [
+    23083,
+    23084,
+    23085
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 23085,
+     "new": 24381,
+     "reason": "logo (w/h 15.2, ink 42%)"
+    }
+   ],
+   "last": "2026-09-01 22:11 UTC"
+  },
+  "23005": {
+   "name": "REAL MADRID 2011-12 HOME KIT RONALDO POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/real-madrid-2011-12-home-kit-ronaldo-polo-embroidery-premium/",
+   "sku": "TS-real-madrid-2011-12-home-kit-ronaldo-polo-embroidery-premium-1",
+   "original_images": [
+    23002,
+    23003,
+    23004
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23002,
+     "new": 24383,
+     "reason": "logo (w/h 7.8, ink 10%)"
+    }
+   ],
+   "last": "2026-09-01 22:12 UTC"
+  },
+  "22967": {
+   "name": "BARCELONA 26-27 HOME KIT FULLSLEEVE EMBROIDERY",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-home-kit-fullsleeve-embroidery/",
+   "sku": "TS-barcelona-26-27-home-kit-fullsleeve-embroidery",
+   "original_images": [
+    22964,
+    22965,
+    22966
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22966,
+     "new": 24385,
+     "reason": "logo (w/h 16.0, ink 45%)"
+    }
+   ],
+   "last": "2026-09-01 22:12 UTC"
+  },
+  "22958": {
+   "name": "REAL MADRID 26-27 HOME KIT FULLSLEEVE EMBROIDERY",
+   "url": "https://visionsjersey.com/product/real-madrid-26-27-home-kit-fullsleeve-embroidery/",
+   "sku": "TS-real-madrid-26-27-home-kit-embroidery-premium",
+   "original_images": [
+    22955,
+    22956,
+    22957
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22957,
+     "new": 24386,
+     "reason": "logo (w/h 12.0, ink 38%)"
+    }
+   ],
+   "last": "2026-09-01 22:13 UTC"
+  },
+  "22943": {
+   "name": "BARCELONA 26-27 HOME KIT LAMINE YAMAL FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-home-kit-lamine-yamal-fivesleeve-polo/",
+   "sku": "TS-barcelona-26-27-home-kit-lamine-yamal-fivesleeve-polo",
+   "original_images": [
+    22941,
+    22942
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22942,
+     "new": 24387,
+     "reason": "logo (w/h 5.2, ink 9%)"
+    }
+   ],
+   "last": "2026-09-01 22:13 UTC"
+  },
+  "22936": {
+   "name": "REAL MADRID 26-27 HOME KIT MBAPPE FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/real-madrid-26-27-home-kit-mbappe-fivesleeve-polo/",
+   "sku": "TS-real-madrid-26-27-home-kit-mbappe-fivesleeve-polo",
+   "original_images": [
+    22934,
+    22935
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22935,
+     "new": 24388,
+     "reason": "logo (w/h 21.8, ink 48%)"
+    }
+   ],
+   "last": "2026-09-01 22:13 UTC"
+  },
+  "22921": {
+   "name": "PSG 26-27 AWAY KIT DEMBELE FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/psg-26-27-away-kit-dembele-fivesleeve-polo/",
+   "sku": "TS-psg-26-27-away-kit-dembele-fivesleeve-polo",
+   "original_images": [
+    22919,
+    22920
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22920,
+     "new": 24389,
+     "reason": "logo (w/h 19.0, ink 46%)"
+    }
+   ],
+   "last": "2026-09-01 22:13 UTC"
+  },
+  "22914": {
+   "name": "ARSANEL 26-27 HOME KIT SAKA FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/arsanel-26-27-home-kit-saka-fivesleeve-polo/",
+   "sku": "TS-arsanel-26-27-home-kit-saka-fivesleeve-polo",
+   "original_images": [
+    22912,
+    22913
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22912,
+     "new": 24390,
+     "reason": "logo (w/h 3.5, ink 21%)"
+    },
+    {
+     "i": 1,
+     "old": 22913,
+     "new": 24391,
+     "reason": "logo (w/h 8.1, ink 34%)"
+    }
+   ],
+   "last": "2026-09-01 22:13 UTC"
+  },
+  "22906": {
+   "name": "BRAZIL X CHRIST 24-25 SPECIAL EDITION KIT NEYMER EMBROIDERY",
+   "url": "https://visionsjersey.com/product/brazil-x-christ-24-25-special-edition-kit-neymer-embroidery/",
+   "sku": "TS-brazil-x-christ-24-25-special-edition-kit-neymer-embroidery",
+   "original_images": [
+    22903,
+    22904,
+    22905
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22903,
+     "new": 24392,
+     "reason": "logo (w/h 14.1, ink 33%)"
+    },
+    {
+     "i": 2,
+     "old": 22905,
+     "new": 24393,
+     "reason": "logo (w/h 16.9, ink 37%)"
+    }
+   ],
+   "last": "2026-09-01 22:14 UTC"
+  },
+  "22897": {
+   "name": "REAL MADRID 26-27 HOME KIT BELINGHAM EMBROIDERY",
+   "url": "https://visionsjersey.com/product/real-madrid-26-27-home-kit-belingham-embroidery/",
+   "sku": "TS-real-madrid-26-27-home-kit-vini-embroidery",
+   "original_images": [
+    22894,
+    22895,
+    22896
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22894,
+     "new": 24394,
+     "reason": "logo (w/h 13.2, ink 37%)"
+    },
+    {
+     "i": 2,
+     "old": 22896,
+     "new": 24395,
+     "reason": "logo (w/h 15.0, ink 32%)"
+    }
+   ],
+   "last": "2026-09-01 22:14 UTC"
+  },
+  "22872": {
+   "name": "ARSANEL 26-27 HOME KIT SAKA EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/arsanel-26-27-home-kit-saka-embroidery-premium/",
+   "sku": "TS-arsanel-26-27-home-kit-saka-embroidery-premium",
+   "original_images": [
+    22869,
+    22870,
+    22871
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22869,
+     "new": 24396,
+     "reason": "logo (w/h 11.4, ink 35%)"
+    },
+    {
+     "i": 2,
+     "old": 22871,
+     "new": 24397,
+     "reason": "logo (w/h 13.9, ink 43%)"
+    }
+   ],
+   "last": "2026-09-01 22:14 UTC"
+  },
+  "22854": {
+   "name": "LIVERPOOL 26-27 HOME KIT SZOBOZLAI EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/liverpool-26-27-home-kit-szobozlai-embroidery-premium/",
+   "sku": "TS-liverpool-26-27-home-kit-szobozlai-embroidery-premium",
+   "original_images": [
+    22851,
+    22852,
+    22853
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22851,
+     "new": 24399,
+     "reason": "logo (w/h 13.0, ink 37%)"
+    },
+    {
+     "i": 2,
+     "old": 22853,
+     "new": 24400,
+     "reason": "logo (w/h 11.4, ink 37%)"
+    }
+   ],
+   "last": "2026-09-01 22:15 UTC"
+  },
+  "22847": {
+   "name": "TSHIRT BARCELONA 19 POLO EMBROIDERY WITH ZIP PREMIUM",
+   "url": "https://visionsjersey.com/product/tshirt-barcelona-19-polo-embroidery-with-zip-premium/",
+   "sku": "TS-tshirt-barcelona-19-polo-embroidery-with-zip-premium",
+   "original_images": [
+    22844,
+    22845,
+    22846
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22844,
+     "new": 24401,
+     "reason": "logo (w/h 8.1, ink 71%)"
+    }
+   ],
+   "last": "2026-09-01 22:15 UTC"
+  },
+  "22833": {
+   "name": "TSHIRT ACMILAN 22 POLO EMBROIDERY WITH ZIP PREMIUM",
+   "url": "https://visionsjersey.com/product/tshirt-acmilan-22-polo-embroidery-with-zip-premium/",
+   "sku": "TS-tshirt-acmilan-22-polo-embroidery-with-zip-premium",
+   "original_images": [
+    22830,
+    22831,
+    22832
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22830,
+     "new": 24402,
+     "reason": "logo (w/h 10.1, ink 70%)"
+    }
+   ],
+   "last": "2026-09-01 22:15 UTC"
+  },
+  "22826": {
+   "name": "TSHIRT INTERMILAN 10 POLO EMBROIDERY WITH ZIP PREMIUM",
+   "url": "https://visionsjersey.com/product/tshirt-intermilan-10-polo-embroidery-with-zip-premium/",
+   "sku": "TS-tshirt-intermilan-10-polo-embroidery-with-zip-premium",
+   "original_images": [
+    22823,
+    22824,
+    22825
+   ],
+   "cleaned_indexes": [
+    0,
+    1,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22823,
+     "new": 24403,
+     "reason": "logo (w/h 14.8, ink 59%)"
+    },
+    {
+     "i": 1,
+     "old": 22824,
+     "new": 24404,
+     "reason": "logo (w/h 33.0, ink 22%)"
+    },
+    {
+     "i": 2,
+     "old": 22825,
+     "new": 24405,
+     "reason": "logo (w/h 47.0, ink 66%)"
+    }
+   ],
+   "last": "2026-09-01 22:16 UTC"
+  },
+  "22818": {
+   "name": "ACMILAN 2014-15 HOME KIT TORRES FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/acmilan-2014-15-home-kit-torres-fivesleeve-polo/",
+   "sku": "TS-acmilan-2014-15-home-kit-torres-fivesleeve-polo",
+   "original_images": [
+    22816,
+    22817
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22816,
+     "new": 24406,
+     "reason": "logo (w/h 13.2, ink 65%)"
+    },
+    {
+     "i": 1,
+     "old": 22817,
+     "new": 24407,
+     "reason": "logo (w/h 12.5, ink 75%)"
+    }
+   ],
+   "last": "2026-09-01 22:16 UTC"
+  },
+  "22810": {
+   "name": "ACMILAN 1997-98 HOME KIT MALDINI FIVESLEEVE",
+   "url": "https://visionsjersey.com/product/acmilan-1997-98-home-kit-maldini-fivesleeve/",
+   "sku": "TS-acmilan-1997-98-home-kit-maldini-fivesleeve",
+   "original_images": [
+    22808,
+    22809
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22808,
+     "new": 24408,
+     "reason": "logo (w/h 16.1, ink 39%)"
+    },
+    {
+     "i": 1,
+     "old": 22809,
+     "new": 24409,
+     "reason": "logo (w/h 25.0, ink 51%)"
+    }
+   ],
+   "last": "2026-09-01 22:16 UTC"
+  },
+  "22784": {
+   "name": "JAPAN X ZORO SPECIAL EDITION KIT EMBROIDERY",
+   "url": "https://visionsjersey.com/product/japan-x-zoro-special-edition-kit-embroidery/",
+   "sku": "TS-japan-x-zoro-special-edition-kit-embroidery",
+   "original_images": [
+    22781,
+    22782,
+    22783
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22783,
+     "new": 24410,
+     "reason": "logo (w/h 16.9, ink 33%)"
+    }
+   ],
+   "last": "2026-09-01 22:17 UTC"
+  },
+  "22767": {
+   "name": "ACMILAN 2024 SPECIAL EDITION KIT MALDINI POLO EMBROIDERY",
+   "url": "https://visionsjersey.com/product/acmilan-2024-special-edition-kit-maldini-polo-embroidery/",
+   "sku": "TS-acmilan-2024-special-edition-kit-maldini-polo-embroidery",
+   "original_images": [
+    22764,
+    22765,
+    22766
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22766,
+     "new": 24411,
+     "reason": "logo (w/h 18.8, ink 41%)"
+    }
+   ],
+   "last": "2026-09-01 22:17 UTC"
+  },
+  "22751": {
+   "name": "GERMANY 1998 HOME KIT KLINSMANN FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/germany-1998-home-kit-klinsmann-fivesleeve-polo/",
+   "sku": "TS-germany-1998-home-kit-klinsmann-fivesleeve-polo",
+   "original_images": [
+    22749,
+    22750
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22750,
+     "new": 24413,
+     "reason": "logo (w/h 25.8, ink 61%)"
+    }
+   ],
+   "last": "2026-09-01 22:17 UTC"
+  },
+  "22744": {
+   "name": "BRAZIL 2026 NEYMER CONCEPT KIT FIVESLEEVE POLO",
+   "url": "https://visionsjersey.com/product/brazil-2026-neymer-concept-kit-fivesleeve-polo/",
+   "sku": "TS-brazil-2026-neymer-concept-kit-fivesleeve-polo",
+   "original_images": [
+    22742,
+    22743
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22743,
+     "new": 24414,
+     "reason": "logo (w/h 17.0, ink 75%)"
+    }
+   ],
+   "last": "2026-09-01 22:17 UTC"
+  },
+  "22736": {
+   "name": "MANCHESTER CITY 26-27 HOME KIT CHERKI",
+   "url": "https://visionsjersey.com/product/manchester-city-26-27-home-kit-cherki/",
+   "sku": "TS-manchester-city-26-27-home-kit-cherki",
+   "original_images": [
+    22734,
+    22735
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22734,
+     "new": 24415,
+     "reason": "logo (w/h 8.0, ink 42%)"
+    },
+    {
+     "i": 1,
+     "old": 22735,
+     "new": 24416,
+     "reason": "logo (w/h 3.0, ink 13%)"
+    }
+   ],
+   "last": "2026-09-01 22:18 UTC"
+  },
+  "22708": {
+   "name": "JUVENTUS 26-27 HOME KIT YILDIZ POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/juventus-26-27-home-kit-yildiz-polo-embroidery-premium/",
+   "sku": "TS-juventus-26-27-home-kit-yildiz-polo-embroidery-premium",
+   "original_images": [
+    22705,
+    22706,
+    22707
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22707,
+     "new": 24417,
+     "reason": "logo (w/h 12.1, ink 18%)"
+    }
+   ],
+   "last": "2026-09-01 22:18 UTC"
+  },
+  "22698": {
+   "name": "BARCELONA 2011-12 AWAY KIT MESSI EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/barcelona-2011-12-away-kit-messi-embroidery-premium/",
+   "sku": "TS-barcelona-2011-12-away-kit-messi-embroidery-premium-1",
+   "original_images": [
+    22695,
+    22696,
+    22697
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22695,
+     "new": 24418,
+     "reason": "logo (w/h 11.5, ink 37%)"
+    }
+   ],
+   "last": "2026-09-01 22:18 UTC"
+  },
+  "22689": {
+   "name": "REAL MADRID 2006-07 AWAY KIT BECKHAM FULLSLEEVE POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/real-madrid-2006-07-away-kit-beckham-fullsleeve-polo-embroidery-premium/",
+   "sku": "TS-real-madrid-2006-07-away-kit-beckham-fullsleeve-polo-embroidery-premium-1",
+   "original_images": [
+    22686,
+    22687,
+    22688
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22688,
+     "new": 24419,
+     "reason": "logo (w/h 15.1, ink 43%)"
+    }
+   ],
+   "last": "2026-09-01 22:18 UTC"
+  },
+  "22667": {
+   "name": "BARCELONA 26-27 HOME KIT YAMAL OVERSIZED FULLSLEEVE POLO",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-home-kit-yamal-oversized-fullsleeve-polo/",
+   "sku": "TS-barcelona-26-27-home-kit-yamal-oversized-fullsleeve-polo",
+   "original_images": [
+    22665,
+    22666
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22666,
+     "new": 24421,
+     "reason": "logo (w/h 21.2, ink 59%)"
+    }
+   ],
+   "last": "2026-09-01 22:19 UTC"
+  },
+  "22643": {
+   "name": "ARSANEL 26-27 THIRD KIT SAKA",
+   "url": "https://visionsjersey.com/product/arsanel-26-27-third-kit-saka/",
+   "sku": "TS-real-madrid-26-27-third-kit-saka",
+   "original_images": [
+    22641,
+    22642
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22642,
+     "new": 24424,
+     "reason": "logo (w/h 6.7, ink 68%)"
+    }
+   ],
+   "last": "2026-09-01 22:19 UTC"
+  },
+  "22627": {
+   "name": "INTERMILAN 26-27 AWAY KIT LAUTARO",
+   "url": "https://visionsjersey.com/product/intermilan-26-27-away-kit-lautaro/",
+   "sku": "TS-intermilan-26-27-away-kit-lautaro",
+   "original_images": [
+    22625,
+    22626
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22626,
+     "new": 24425,
+     "reason": "logo (w/h 25.8, ink 47%)"
+    }
+   ],
+   "last": "2026-09-01 22:19 UTC"
+  },
+  "22619": {
+   "name": "PSG 2018-19 THIRD KIT NEYMER FULLSLEEVE EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/psg-2018-19-third-kit-neymer-fullsleeve-embroidery-premium/",
+   "sku": "TS-psg-2018-19-away-kit-neymer-fullsleeve-embroidery-premium",
+   "original_images": [
+    22616,
+    22617,
+    22618
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22618,
+     "new": 24426,
+     "reason": "logo (w/h 15.9, ink 45%)"
+    }
+   ],
+   "last": "2026-09-01 22:20 UTC"
+  },
+  "22609": {
+   "name": "REAL MADRID 26-27 HOME KIT EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/real-madrid-26-27-home-kit-embroidery-premium/",
+   "sku": "TS-real-madrid-26-27-home-kit-embroidery-premium-1",
+   "original_images": [
+    22605,
+    22606,
+    22607,
+    22608
+   ],
+   "cleaned_indexes": [
+    0,
+    3
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22605,
+     "new": 24427,
+     "reason": "logo (w/h 13.0, ink 48%)"
+    },
+    {
+     "i": 3,
+     "old": 22608,
+     "new": 24428,
+     "reason": "logo (w/h 51.0, ink 39%)"
+    }
+   ],
+   "last": "2026-09-01 22:20 UTC"
+  },
+  "22598": {
+   "name": "FRANCE 2018 HOME KIT MBAPPE POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/france-2018-home-kit-mbappe-polo-embroidery-premium/",
+   "sku": "TS-france-2018-home-kit-mbappe-polo-embroidery-premium",
+   "original_images": [
+    22593,
+    22594,
+    22595,
+    22596,
+    22597
+   ],
+   "cleaned_indexes": [
+    0,
+    3
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22593,
+     "new": 24429,
+     "reason": "logo (w/h 15.2, ink 46%)"
+    },
+    {
+     "i": 3,
+     "old": 22596,
+     "new": 24430,
+     "reason": "logo (w/h 43.7, ink 45%)"
+    }
+   ],
+   "last": "2026-09-01 22:20 UTC"
+  },
+  "22587": {
+   "name": "CHELSEA 26-27 AWAY KIT ENZO",
+   "url": "https://visionsjersey.com/product/chelsea-26-27-away-kit-enzo/",
+   "sku": "TS-chelsea-26-27-away-kit-enzo",
+   "original_images": [
+    22585,
+    22586
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22585,
+     "new": 24431,
+     "reason": "logo (w/h 13.7, ink 41%)"
+    },
+    {
+     "i": 1,
+     "old": 22586,
+     "new": 24432,
+     "reason": "logo (w/h 16.5, ink 33%)"
+    }
+   ],
+   "last": "2026-09-01 22:20 UTC"
+  },
+  "22580": {
+   "name": "CHELSEA 26-27 AWAY KIT PALMER FIVESLEEVE",
+   "url": "https://visionsjersey.com/product/chelsea-26-27-away-kit-palmer-fivesleeve/",
+   "sku": "TS-chelsea-26-27-away-kit-palmer-fivesleeve",
+   "original_images": [
+    22578,
+    22579
+   ],
+   "cleaned_indexes": [
+    0,
+    1
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22578,
+     "new": 24433,
+     "reason": "logo (w/h 16.2, ink 37%)"
+    },
+    {
+     "i": 1,
+     "old": 22579,
+     "new": 24434,
+     "reason": "logo (w/h 10.6, ink 52%)"
+    }
+   ],
+   "last": "2026-09-01 22:21 UTC"
+  },
+  "22564": {
+   "name": "REAL MADRID 2017-18 THIRD KIT RONALDO FULLSLEEVE EMBROIDERY",
+   "url": "https://visionsjersey.com/product/real-madrid-2017-18-third-kit-ronaldo-fullsleeve-embroidery/",
+   "sku": "TS-real-madrid-2017-18-third-kit-ronaldo-fullsleeve-embroidery",
+   "original_images": [
+    22561,
+    22562,
+    22563
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22563,
+     "new": 24435,
+     "reason": "logo (w/h 3.0, ink 21%)"
+    }
+   ],
+   "last": "2026-09-01 22:21 UTC"
+  },
+  "22555": {
+   "name": "MANCHESTER UNITED 1998-99 THIRD KIT BECKHAM FULLSLEEVE POLO EMBROIDERY",
+   "url": "https://visionsjersey.com/product/manchester-united-1998-99-third-kit-beckham-fullsleeve-polo-embroidery/",
+   "sku": "TS-manchester-united-1998-99-black-kit-beckham-fullsleeve-polo-embroidery-1",
+   "original_images": [
+    22552,
+    22553,
+    22554
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22552,
+     "new": 24436,
+     "reason": "logo (w/h 14.1, ink 67%)"
+    }
+   ],
+   "last": "2026-09-01 22:21 UTC"
+  },
+  "22537": {
+   "name": "ENGLAND 1998 HOME KIT BECKHAM FULLSLEEVE POLO EMBROIDERY",
+   "url": "https://visionsjersey.com/product/england-1998-home-kit-beckham-fullsleeve-polo-embroidery/",
+   "sku": "TS-england-1998-home-kit-beckham-fullsleeve-polo-embroidery",
+   "original_images": [
+    22534,
+    22535,
+    22536
+   ],
+   "cleaned_indexes": [
+    2
+   ],
+   "edits": [
+    {
+     "i": 2,
+     "old": 22536,
+     "new": 24437,
+     "reason": "logo (w/h 55.5, ink 74%)"
+    }
+   ],
+   "last": "2026-09-01 22:21 UTC"
+  },
+  "22528": {
+   "name": "ENGLAND 1998 HOME KIT BECKHAM POLO EMBROIDERY",
+   "url": "https://visionsjersey.com/product/england-1998-home-kit-beckham-polo-embroidery/",
+   "sku": "TS-england-1998-home-kit-beckham-polo-embroidery",
+   "original_images": [
+    22525,
+    22526,
+    22527
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22526,
+     "new": 24438,
+     "reason": "logo (w/h 38.9, ink 18%)"
+    }
+   ],
+   "last": "2026-09-01 22:22 UTC"
+  },
+  "22511": {
+   "name": "ACMILAN 26-27 HOME KIT MODRIC EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/acmilan-26-27-home-kit-modric-embroidery-premium/",
+   "sku": "TS-acmilan-26-27-home-kit-modric-embroidery-premium",
+   "original_images": [
+    22507,
+    22508,
+    22509,
+    22510
+   ],
+   "cleaned_indexes": [
+    0,
+    3
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22507,
+     "new": 24439,
+     "reason": "logo (w/h 12.6, ink 34%)"
+    },
+    {
+     "i": 3,
+     "old": 22510,
+     "new": 24440,
+     "reason": "logo (w/h 25.0, ink 55%)"
+    }
+   ],
+   "last": "2026-09-01 22:22 UTC"
+  },
+  "22491": {
+   "name": "TOTTENHAM 26-27 AWAY KIT TONALI",
+   "url": "https://visionsjersey.com/product/tottenham-26-27-away-kit-tonali/",
+   "sku": "TS-tottenham-26-27-away-kit-tonali",
+   "original_images": [
+    22489,
+    22490
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22490,
+     "new": 24441,
+     "reason": "logo (w/h 12.2, ink 41%)"
+    }
+   ],
+   "last": "2026-09-01 22:22 UTC"
+  },
+  "22457": {
+   "name": "BARCELONA 26-27 THIRD KIT LAMINE YAMAL",
+   "url": "https://visionsjersey.com/product/barcelona-26-27-third-kit-lamine-yamal/",
+   "sku": "TS-barcelona-26-27-third-kit-yamal",
+   "original_images": [
+    22455,
+    22456
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22456,
+     "new": 24443,
+     "reason": "logo (w/h 16.2, ink 37%)"
+    }
+   ],
+   "last": "2026-09-01 22:23 UTC"
+  },
+  "22449": {
+   "name": "GERMANY 2000 AWAY KIT BALLACK FIVESLEEVE POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/germany-2000-away-kit-ballack-fivesleeve-polo-embroidery-premium/",
+   "sku": "TS-germany-2000-away-kit-ballack-fivesleeve-polo-embroidery-premium",
+   "original_images": [
+    22446,
+    22447,
+    22448
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22446,
+     "new": 24444,
+     "reason": "logo (w/h 5.3, ink 22%)"
+    },
+    {
+     "i": 2,
+     "old": 22448,
+     "new": 24445,
+     "reason": "logo (w/h 8.9, ink 30%)"
+    }
+   ],
+   "last": "2026-09-01 22:23 UTC"
+  },
+  "22440": {
+   "name": "REAL MADRID 2011-12 HOME KIT RONALDO FULLSLEEVE POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/real-madrid-2011-12-home-kit-ronaldo-fullsleeve-polo-embroidery-premium/",
+   "sku": "TS-real-madrid-2011-12-home-kit-ronaldo-fullsleeve-polo-embroidery-premium-1",
+   "original_images": [
+    22437,
+    22438,
+    22439
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22437,
+     "new": 24446,
+     "reason": "logo (w/h 55.5, ink 12%)"
+    },
+    {
+     "i": 2,
+     "old": 22439,
+     "new": 24447,
+     "reason": "logo (w/h 16.2, ink 35%)"
+    }
+   ],
+   "last": "2026-09-01 22:23 UTC"
+  },
+  "22430": {
+   "name": "LIVERPOOL 2021-22 AWAY KIT DIOGO J. POLO EMBROIDERY PREMIUM",
+   "url": "https://visionsjersey.com/product/liverpool-2021-22-away-kit-diogo-j-polo-embroidery-premium/",
+   "sku": "TS-liverpool-2021-22-away-kit-diogo-j-polo-embroidery-premium",
+   "original_images": [
+    22427,
+    22428,
+    22429
+   ],
+   "cleaned_indexes": [
+    0
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 22427,
+     "new": 24448,
+     "reason": "logo (w/h 8.9, ink 68%)"
+    }
+   ],
+   "last": "2026-09-01 22:23 UTC"
+  },
+  "22412": {
+   "name": "ACMILAN 26-27 HOME KIT MODRIC",
+   "url": "https://visionsjersey.com/product/acmilan-26-27-home-kit-modric/",
+   "sku": "TS-acmilan-26-27-home-kit-modric",
+   "original_images": [
+    22410,
+    22411
+   ],
+   "cleaned_indexes": [
+    1
+   ],
+   "edits": [
+    {
+     "i": 1,
+     "old": 22411,
+     "new": 24449,
+     "reason": "logo (w/h 19.4, ink 45%)"
+    }
+   ],
+   "last": "2026-09-01 22:24 UTC"
   }
  },
  "skip": [],
  "checked": {
   "24021": {
-   "at": "2026-09-01 21:13 UTC",
+   "at": "2026-09-01 21:58 UTC",
    "fingerprint": "24018,24019,24020"
   },
   "24003": {
-   "at": "2026-09-01 21:13 UTC",
+   "at": "2026-09-01 21:58 UTC",
    "fingerprint": "24000,24001,24002"
   },
   "23992": {
-   "at": "2026-09-01 21:13 UTC",
+   "at": "2026-09-01 21:58 UTC",
    "fingerprint": "23988,23989,23990,23991"
   },
   "23981": {
-   "at": "2026-09-01 21:13 UTC",
+   "at": "2026-09-01 21:58 UTC",
    "fingerprint": "23978,23979,23980"
   },
   "23971": {
-   "at": "2026-09-01 21:13 UTC",
-   "fingerprint": "23968,23969,23970"
+   "at": "2026-09-01 21:58 UTC",
+   "fingerprint": "24166,23969,23970"
   },
   "23962": {
-   "at": "2026-09-01 21:13 UTC",
+   "at": "2026-09-01 21:58 UTC",
    "fingerprint": "23959,23960,23961"
   },
   "23927": {
-   "at": "2026-09-01 21:13 UTC",
-   "fingerprint": "23923,23924,23925,23926"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24167,24168,23925,23926"
   },
   "23921": {
-   "at": "2026-09-01 21:14 UTC",
-   "fingerprint": "23919,23920"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24169,24170"
   },
   "23917": {
-   "at": "2026-09-01 21:14 UTC",
-   "fingerprint": "23914,23915,23916"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "23914,24171,23916"
   },
   "23911": {
-   "at": "2026-09-01 21:14 UTC",
-   "fingerprint": "23932,23933,23934"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24172,23933,24173"
   },
   "23904": {
-   "at": "2026-09-01 21:15 UTC",
-   "fingerprint": "23901,23902,23903"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24174,23902,24175"
   },
   "23898": {
-   "at": "2026-09-01 21:15 UTC",
-   "fingerprint": "23935,23896,23936"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24176,24177,24178"
   },
   "23891": {
-   "at": "2026-09-01 21:15 UTC",
-   "fingerprint": "23937,23889,23890"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24179,24180,24181"
   },
   "23878": {
-   "at": "2026-09-01 21:16 UTC",
-   "fingerprint": "23938,23876,23939"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24182,24183,24184"
   },
   "23872": {
-   "at": "2026-09-01 21:16 UTC",
-   "fingerprint": "24064,23870,24065"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24064,24185,24065"
   },
   "23862": {
-   "at": "2026-09-01 21:16 UTC",
-   "fingerprint": "23859,23860,23861"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24186,24187,23861"
   },
   "23852": {
-   "at": "2026-09-01 21:17 UTC",
-   "fingerprint": "23850,23851"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24188,23851"
   },
   "23844": {
-   "at": "2026-09-01 21:17 UTC",
-   "fingerprint": "23841,23842,23843"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "23841,24189,23843"
   },
   "23837": {
-   "at": "2026-09-01 21:17 UTC",
-   "fingerprint": "23942,23943"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24190,24191"
   },
   "23830": {
-   "at": "2026-09-01 21:18 UTC",
-   "fingerprint": "23944,23945"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24192,24193"
   },
   "23822": {
-   "at": "2026-09-01 21:18 UTC",
+   "at": "2026-09-01 21:59 UTC",
    "fingerprint": "23819,23820,23821"
   },
   "23812": {
-   "at": "2026-09-01 21:18 UTC",
-   "fingerprint": "23809,23810,23811"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24194,23810,23811"
   },
   "23805": {
-   "at": "2026-09-01 21:18 UTC",
-   "fingerprint": "23946,23947"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24195,24196"
   },
   "23798": {
-   "at": "2026-09-01 21:19 UTC",
-   "fingerprint": "23948,23949"
+   "at": "2026-09-01 21:59 UTC",
+   "fingerprint": "24197,24198"
   },
   "23791": {
-   "at": "2026-09-01 21:19 UTC",
-   "fingerprint": "23788,23789,23790"
+   "at": "2026-09-01 22:00 UTC",
+   "fingerprint": "23788,24199,23790"
   },
   "23781": {
-   "at": "2026-09-01 21:19 UTC",
-   "fingerprint": "23778,23779,23780"
+   "at": "2026-09-01 22:00 UTC",
+   "fingerprint": "24200,24201,24202"
   },
   "23774": {
-   "at": "2026-09-01 21:19 UTC",
-   "fingerprint": "23950,23773"
+   "at": "2026-09-01 22:00 UTC",
+   "fingerprint": "24203,24204"
   },
   "23767": {
-   "at": "2026-09-01 21:20 UTC",
+   "at": "2026-09-01 22:00 UTC",
    "fingerprint": "23765,23766"
   },
   "23762": {
-   "at": "2026-09-01 21:20 UTC",
-   "fingerprint": "23759,23760,23761"
+   "at": "2026-09-01 22:00 UTC",
+   "fingerprint": "23759,24205,23761"
   },
   "23757": {
-   "at": "2026-09-01 21:20 UTC",
-   "fingerprint": "23951,23952,23953"
+   "at": "2026-09-01 22:00 UTC",
+   "fingerprint": "24206,23952,24207"
   },
   "23747": {
-   "at": "2026-09-01 21:21 UTC",
-   "fingerprint": "23744,23745,23746"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24208,23745,23746"
   },
   "23738": {
-   "at": "2026-09-01 21:21 UTC",
-   "fingerprint": "23735,23736,23737"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24209,24210,23737"
   },
   "23729": {
-   "at": "2026-09-01 21:21 UTC",
+   "at": "2026-09-01 22:01 UTC",
    "fingerprint": "23726,23727,23728"
   },
   "23719": {
-   "at": "2026-09-01 21:21 UTC",
-   "fingerprint": "23715,23716,23717,23718"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "23715,24211,23717,23718"
   },
   "23709": {
-   "at": "2026-09-01 21:21 UTC",
-   "fingerprint": "23706,23707,23708"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24212,23707,23708"
   },
   "23700": {
-   "at": "2026-09-01 21:22 UTC",
-   "fingerprint": "23697,23698,23699"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24213,23698,23699"
   },
   "23690": {
-   "at": "2026-09-01 21:22 UTC",
+   "at": "2026-09-01 22:01 UTC",
    "fingerprint": "23687,23688,23689"
   },
   "23680": {
-   "at": "2026-09-01 21:22 UTC",
-   "fingerprint": "23676,23677,23678,23679"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24214,23677,23678,23679"
   },
   "23670": {
-   "at": "2026-09-01 21:22 UTC",
-   "fingerprint": "23667,23668,23669"
+   "at": "2026-09-01 22:01 UTC",
+   "fingerprint": "24215,23668,23669"
   },
   "23662": {
-   "at": "2026-09-01 21:22 UTC",
+   "at": "2026-09-01 22:02 UTC",
    "fingerprint": "23658,23659,23661"
   },
   "23651": {
-   "at": "2026-09-01 21:22 UTC",
+   "at": "2026-09-01 22:02 UTC",
    "fingerprint": "23647,23648,23649,23650"
   },
   "23640": {
-   "at": "2026-09-01 21:22 UTC",
-   "fingerprint": "23636,23637,23638,23639"
+   "at": "2026-09-01 22:02 UTC",
+   "fingerprint": "24216,24217,23638,23639"
   },
   "23630": {
-   "at": "2026-09-01 21:22 UTC",
+   "at": "2026-09-01 22:02 UTC",
    "fingerprint": "23627,23628,23629"
   },
   "23622": {
-   "at": "2026-09-01 21:23 UTC",
+   "at": "2026-09-01 22:02 UTC",
    "fingerprint": "23618,23619,23620,23621"
   },
   "23611": {
-   "at": "2026-09-01 21:23 UTC",
-   "fingerprint": "23608,23609,23610"
+   "at": "2026-09-01 22:02 UTC",
+   "fingerprint": "24218,23609,23610"
   },
   "23602": {
-   "at": "2026-09-01 21:23 UTC",
-   "fingerprint": "23600,23601"
+   "at": "2026-09-01 22:02 UTC",
+   "fingerprint": "24219,23601"
   },
   "23593": {
-   "at": "2026-09-01 21:23 UTC",
-   "fingerprint": "23590,23591,23592"
+   "at": "2026-09-01 22:03 UTC",
+   "fingerprint": "24220,23591,23592"
   },
   "23583": {
-   "at": "2026-09-01 21:23 UTC",
+   "at": "2026-09-01 22:03 UTC",
    "fingerprint": "23579,23580,23581,23582"
   },
   "23572": {
-   "at": "2026-09-01 21:23 UTC",
-   "fingerprint": "23568,23569,23570,23571"
+   "at": "2026-09-01 22:03 UTC",
+   "fingerprint": "24221,23569,23570,23571"
   },
   "23562": {
-   "at": "2026-09-01 21:24 UTC",
-   "fingerprint": "23559,23560,23561"
+   "at": "2026-09-01 22:03 UTC",
+   "fingerprint": "24222,23560,24223"
   },
   "23552": {
-   "at": "2026-09-01 21:24 UTC",
-   "fingerprint": "23549,23550,23551"
+   "at": "2026-09-01 22:03 UTC",
+   "fingerprint": "24224,23550,24225"
   },
   "23542": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:03 UTC",
    "fingerprint": "23539,23540,23541"
   },
   "23532": {
-   "at": "2026-09-01 21:24 UTC",
-   "fingerprint": "23528,23529,23530,23531"
+   "at": "2026-09-01 22:03 UTC",
+   "fingerprint": "24226,23529,23530,23531"
   },
   "23522": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:04 UTC",
    "fingerprint": "23520,23521"
   },
   "23513": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:04 UTC",
    "fingerprint": "23510,23511,23512"
   },
   "23505": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:04 UTC",
    "fingerprint": "23502,23503,23504"
   },
   "23495": {
-   "at": "2026-09-01 21:24 UTC",
-   "fingerprint": "23491,23492,23493,23494"
+   "at": "2026-09-01 22:04 UTC",
+   "fingerprint": "23491,23492,24227,23494"
   },
   "23484": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:04 UTC",
    "fingerprint": "23481,23482,23483"
   },
   "23476": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:05 UTC",
    "fingerprint": "23474,23475"
   },
   "23468": {
-   "at": "2026-09-01 21:24 UTC",
+   "at": "2026-09-01 22:05 UTC",
    "fingerprint": "23466,23467"
   },
   "23460": {
-   "at": "2026-09-01 21:25 UTC",
-   "fingerprint": "23458,23459"
+   "at": "2026-09-01 22:05 UTC",
+   "fingerprint": "24228,24229"
   },
   "23452": {
-   "at": "2026-09-01 21:25 UTC",
-   "fingerprint": "23450,23451"
+   "at": "2026-09-01 22:05 UTC",
+   "fingerprint": "24230,24231"
   },
   "23443": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:05 UTC",
    "fingerprint": "23440,23441,23442"
   },
   "23433": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:05 UTC",
    "fingerprint": "23430,23431,23432"
   },
   "23423": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:06 UTC",
    "fingerprint": "23420,23421,23422"
   },
   "23414": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:06 UTC",
    "fingerprint": "23412,23413"
   },
   "23406": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:06 UTC",
    "fingerprint": "23403,23404,23405"
   },
   "23397": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:06 UTC",
    "fingerprint": "23394,23395,23396"
   },
   "23387": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:06 UTC",
    "fingerprint": "23384,23385,23386"
   },
   "23378": {
-   "at": "2026-09-01 21:25 UTC",
+   "at": "2026-09-01 22:07 UTC",
    "fingerprint": "23376,23377"
   },
   "23369": {
-   "at": "2026-09-01 21:25 UTC",
-   "fingerprint": "23365,23366,23367,23368"
+   "at": "2026-09-01 22:07 UTC",
+   "fingerprint": "24232,23366,24233,23368"
   },
   "23360": {
-   "at": "2026-09-01 21:26 UTC",
-   "fingerprint": "23357,23358,23359"
+   "at": "2026-09-01 22:07 UTC",
+   "fingerprint": "24234,23358,23359"
   },
   "23352": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:07 UTC",
    "fingerprint": "23349,23350,23351"
   },
   "23343": {
-   "at": "2026-09-01 21:26 UTC",
-   "fingerprint": "23340,23341,23342"
+   "at": "2026-09-01 22:07 UTC",
+   "fingerprint": "24235,23341,23342"
   },
   "23334": {
-   "at": "2026-09-01 21:26 UTC",
-   "fingerprint": "23331,23332,23333"
+   "at": "2026-09-01 22:07 UTC",
+   "fingerprint": "23331,23332,24236"
   },
   "23324": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:08 UTC",
    "fingerprint": "23321,23322,23323"
   },
   "23316": {
-   "at": "2026-09-01 21:26 UTC",
-   "fingerprint": "23314,23315"
+   "at": "2026-09-01 22:08 UTC",
+   "fingerprint": "23314,24237"
   },
   "23309": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:08 UTC",
    "fingerprint": "23307,23308"
   },
   "23301": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:08 UTC",
    "fingerprint": "23299,23300"
   },
   "23294": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:08 UTC",
    "fingerprint": "23292,23293"
   },
   "23284": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23280,23281,23282,23283"
   },
   "23272": {
-   "at": "2026-09-01 21:26 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23268,23269,23270,23271"
   },
   "23263": {
-   "at": "2026-09-01 21:27 UTC",
-   "fingerprint": "23261,23262"
+   "at": "2026-09-01 22:09 UTC",
+   "fingerprint": "23261,24238"
   },
   "23256": {
-   "at": "2026-09-01 21:27 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23254,23255"
   },
   "23249": {
-   "at": "2026-09-01 21:27 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23247,23248"
   },
   "23242": {
-   "at": "2026-09-01 21:27 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23240,23241"
   },
   "23233": {
-   "at": "2026-09-01 21:27 UTC",
+   "at": "2026-09-01 22:09 UTC",
    "fingerprint": "23230,23231,23232"
   },
   "23224": {
-   "at": "2026-09-01 21:27 UTC",
-   "fingerprint": "23222,23223"
+   "at": "2026-09-01 22:10 UTC",
+   "fingerprint": "24239,23223"
   },
   "23216": {
-   "at": "2026-09-01 21:27 UTC",
-   "fingerprint": "23214,23215"
+   "at": "2026-09-01 22:10 UTC",
+   "fingerprint": "24240,23215"
   },
   "23208": {
-   "at": "2026-09-01 21:27 UTC",
+   "at": "2026-09-01 22:10 UTC",
    "fingerprint": "23206,23207"
   },
   "23200": {
-   "at": "2026-09-01 21:27 UTC",
-   "fingerprint": "23198,23199"
+   "at": "2026-09-01 22:10 UTC",
+   "fingerprint": "23198,24241"
   },
   "23191": {
-   "at": "2026-09-01 21:28 UTC",
-   "fingerprint": "23187,23188,23189,23190"
+   "at": "2026-09-01 22:10 UTC",
+   "fingerprint": "23187,23188,23189,24242"
   },
   "23180": {
-   "at": "2026-09-01 21:28 UTC",
+   "at": "2026-09-01 22:10 UTC",
    "fingerprint": "23176,23177,23178,23179"
   },
   "23169": {
-   "at": "2026-09-01 21:28 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23166,23167,23168"
   },
   "23160": {
-   "at": "2026-09-01 21:28 UTC",
-   "fingerprint": "23158,23159"
+   "at": "2026-09-01 22:11 UTC",
+   "fingerprint": "24243,24244"
   },
   "23152": {
-   "at": "2026-09-01 21:28 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23150,23151"
   },
   "23144": {
-   "at": "2026-09-01 21:28 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23142,23143"
   },
   "23136": {
-   "at": "2026-09-01 21:28 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23134,23135"
   },
   "23129": {
-   "at": "2026-09-01 21:28 UTC",
-   "fingerprint": "23126,23127,23128"
+   "at": "2026-09-01 22:11 UTC",
+   "fingerprint": "24245,23127,24246"
   },
   "23120": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23118,23119"
   },
   "23112": {
-   "at": "2026-09-01 21:29 UTC",
-   "fingerprint": "23110,23111"
+   "at": "2026-09-01 22:11 UTC",
+   "fingerprint": "24247,24248"
   },
   "23104": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23101,23102,23103"
   },
   "23095": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23092,23093,23094"
   },
   "23086": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:11 UTC",
    "fingerprint": "23083,23084,23085"
   },
   "23077": {
-   "at": "2026-09-01 21:29 UTC",
-   "fingerprint": "23074,23075,23076"
+   "at": "2026-09-01 22:12 UTC",
+   "fingerprint": "24249,23075,23076"
   },
   "23068": {
-   "at": "2026-09-01 21:29 UTC",
-   "fingerprint": "23065,23066,23067"
+   "at": "2026-09-01 22:12 UTC",
+   "fingerprint": "24250,23066,24251"
   },
   "23058": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "23054,23055,23056,23057"
   },
   "23048": {
-   "at": "2026-09-01 21:29 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "23044,23045,23046,23047"
   },
   "23037": {
-   "at": "2026-09-01 21:30 UTC",
-   "fingerprint": "23034,23035,23036"
+   "at": "2026-09-01 22:12 UTC",
+   "fingerprint": "24252,23035,23036"
   },
   "23028": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "23023,23024,23025,23026,23027"
   },
   "23016": {
-   "at": "2026-09-01 21:30 UTC",
-   "fingerprint": "23012,23013,23014,23015"
+   "at": "2026-09-01 22:12 UTC",
+   "fingerprint": "24253,23013,23014,24254"
   },
   "23005": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "23002,23003,23004"
   },
   "22996": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "22993,22994,22995"
   },
   "22986": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "22983,22984,22985"
   },
   "22976": {
-   "at": "2026-09-01 21:30 UTC",
-   "fingerprint": "22973,22974,22975"
+   "at": "2026-09-01 22:12 UTC",
+   "fingerprint": "24255,22974,24256"
   },
   "22967": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:12 UTC",
    "fingerprint": "22964,22965,22966"
   },
   "22958": {
-   "at": "2026-09-01 21:30 UTC",
+   "at": "2026-09-01 22:13 UTC",
    "fingerprint": "22955,22956,22957"
   },
   "22950": {
-   "at": "2026-09-01 21:30 UTC",
-   "fingerprint": "22948,24132"
+   "at": "2026-09-01 22:13 UTC",
+   "fingerprint": "24257,24132"
   },
   "22943": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:13 UTC",
    "fingerprint": "22941,22942"
   },
   "22936": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:13 UTC",
    "fingerprint": "22934,22935"
   },
   "22928": {
-   "at": "2026-09-01 21:31 UTC",
-   "fingerprint": "22926,22927"
+   "at": "2026-09-01 22:13 UTC",
+   "fingerprint": "24258,24259"
   },
   "22921": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:13 UTC",
    "fingerprint": "22919,22920"
   },
   "22914": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:13 UTC",
    "fingerprint": "22912,22913"
   },
   "22906": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:14 UTC",
    "fingerprint": "22903,22904,22905"
   },
   "22897": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:14 UTC",
    "fingerprint": "22894,22895,22896"
   },
   "22888": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:14 UTC",
    "fingerprint": "22886,22887"
   },
   "22881": {
-   "at": "2026-09-01 21:31 UTC",
-   "fingerprint": "22878,22879,23955"
+   "at": "2026-09-01 22:14 UTC",
+   "fingerprint": "24260,22879,23955"
   },
   "22872": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:14 UTC",
    "fingerprint": "22869,22870,22871"
   },
   "22863": {
-   "at": "2026-09-01 21:31 UTC",
-   "fingerprint": "22860,22861,22862"
+   "at": "2026-09-01 22:15 UTC",
+   "fingerprint": "22860,22861,24261"
   },
   "22854": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:15 UTC",
    "fingerprint": "22851,22852,22853"
   },
   "22847": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:15 UTC",
    "fingerprint": "22844,22845,22846"
   },
   "22840": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:15 UTC",
    "fingerprint": "22837,22838,22839"
   },
   "22833": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:15 UTC",
    "fingerprint": "22830,22831,22832"
   },
   "22826": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22823,22824,22825"
   },
   "22818": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22816,22817"
   },
   "22810": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22808,22809"
   },
   "22802": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22799,22800,22801"
   },
   "22793": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22790,22791,22792"
   },
   "22784": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:16 UTC",
    "fingerprint": "22781,22782,22783"
   },
   "22776": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:17 UTC",
    "fingerprint": "22773,22774,22775"
   },
   "22767": {
-   "at": "2026-09-01 21:31 UTC",
+   "at": "2026-09-01 22:17 UTC",
    "fingerprint": "22764,22765,22766"
   },
   "22759": {
-   "at": "2026-09-01 21:32 UTC",
-   "fingerprint": "22756,22757,22758"
+   "at": "2026-09-01 22:17 UTC",
+   "fingerprint": "24262,22757,22758"
   },
   "22751": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:17 UTC",
    "fingerprint": "22749,22750"
   },
   "22744": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:17 UTC",
    "fingerprint": "22742,22743"
   },
   "22736": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22734,22735"
   },
   "22728": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22725,22726,22727"
   },
   "22718": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22715,22716,22717"
   },
   "22708": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22705,22706,22707"
   },
   "22698": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22695,22696,22697"
   },
   "22689": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:18 UTC",
    "fingerprint": "22686,22687,22688"
   },
   "22681": {
-   "at": "2026-09-01 21:32 UTC",
-   "fingerprint": "22679,23956"
+   "at": "2026-09-01 22:18 UTC",
+   "fingerprint": "22679,24263"
   },
   "22674": {
-   "at": "2026-09-01 21:32 UTC",
-   "fingerprint": "22672,22673"
+   "at": "2026-09-01 22:18 UTC",
+   "fingerprint": "24264,24265"
   },
   "22667": {
-   "at": "2026-09-01 21:32 UTC",
+   "at": "2026-09-01 22:19 UTC",
    "fingerprint": "22665,22666"
   },
   "22659": {
-   "at": "2026-09-01 21:32 UTC",
-   "fingerprint": "22657,22658"
+   "at": "2026-09-01 22:19 UTC",
+   "fingerprint": "24266,22658"
   },
   "22651": {
-   "at": "2026-09-01 21:32 UTC",
-   "fingerprint": "22649,22650"
+   "at": "2026-09-01 22:19 UTC",
+   "fingerprint": "22649,24267"
   },
   "22643": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:19 UTC",
    "fingerprint": "22641,22642"
   },
   "22635": {
-   "at": "2026-09-01 21:33 UTC",
-   "fingerprint": "23957,22634"
+   "at": "2026-09-01 22:19 UTC",
+   "fingerprint": "24268,24269"
   },
   "22627": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:19 UTC",
    "fingerprint": "22625,22626"
   },
   "22619": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:20 UTC",
    "fingerprint": "22616,22617,22618"
   },
   "22609": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:20 UTC",
    "fingerprint": "22605,22606,22607,22608"
   },
   "22598": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:20 UTC",
    "fingerprint": "22593,22594,22595,22596,22597"
   },
   "22587": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:20 UTC",
    "fingerprint": "22585,22586"
   },
   "22580": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:21 UTC",
    "fingerprint": "22578,22579"
   },
   "22572": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:21 UTC",
    "fingerprint": "22570,22571"
   },
   "22564": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:21 UTC",
    "fingerprint": "22561,22562,22563"
   },
   "22555": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:21 UTC",
    "fingerprint": "22552,22553,22554"
   },
   "22546": {
-   "at": "2026-09-01 21:33 UTC",
-   "fingerprint": "22543,22544,22545"
+   "at": "2026-09-01 22:21 UTC",
+   "fingerprint": "24270,22544,22545"
   },
   "22537": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:21 UTC",
    "fingerprint": "22534,22535,22536"
   },
   "22528": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:22 UTC",
    "fingerprint": "22525,22526,22527"
   },
   "22521": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:22 UTC",
    "fingerprint": "22518,22519,22520"
   },
   "22511": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:22 UTC",
    "fingerprint": "22507,22508,22509,22510"
   },
   "22501": {
-   "at": "2026-09-01 21:33 UTC",
-   "fingerprint": "22497,22498,22499,22500"
+   "at": "2026-09-01 22:22 UTC",
+   "fingerprint": "24271,22498,22499,22500"
   },
   "22491": {
-   "at": "2026-09-01 21:33 UTC",
+   "at": "2026-09-01 22:22 UTC",
    "fingerprint": "22489,22490"
   },
   "22483": {
-   "at": "2026-09-01 21:34 UTC",
-   "fingerprint": "22480,22481,22482"
+   "at": "2026-09-01 22:22 UTC",
+   "fingerprint": "24272,22481,24273"
   },
   "22474": {
-   "at": "2026-09-01 21:34 UTC",
-   "fingerprint": "22471,22472,22473"
+   "at": "2026-09-01 22:22 UTC",
+   "fingerprint": "24274,22472,22473"
   },
   "22465": {
-   "at": "2026-09-01 21:34 UTC",
-   "fingerprint": "22463,23958"
+   "at": "2026-09-01 22:22 UTC",
+   "fingerprint": "24275,23958"
   },
   "22457": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:23 UTC",
    "fingerprint": "22455,22456"
   },
   "22449": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:23 UTC",
    "fingerprint": "22446,22447,22448"
   },
   "22440": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:23 UTC",
    "fingerprint": "22437,22438,22439"
   },
   "22430": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:23 UTC",
    "fingerprint": "22427,22428,22429"
   },
   "22421": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:23 UTC",
    "fingerprint": "22418,22419,22420"
   },
   "22412": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:24 UTC",
    "fingerprint": "22410,22411"
   },
   "22404": {
-   "at": "2026-09-01 21:34 UTC",
+   "at": "2026-09-01 22:24 UTC",
    "fingerprint": "22402,22403"
   }
  },
- "detector_version": 4
+ "detector_version": 5
 }
