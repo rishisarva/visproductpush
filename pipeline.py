@@ -47,6 +47,12 @@ STATE_FILE = f"{STATE_DIR}/history.json"
 DOCS_DIR = "docs"
 IMG_DIR = f"{DOCS_DIR}/img"
 SKU_PREFIX = "TS-"
+
+# Bump this whenever the detection logic changes. Products checked under an
+# older version are looked at again automatically, so an improvement is never
+# hidden behind the memory of what was already inspected.
+DETECTOR_VERSION = 4
+
 KEEP_EDITS = 80          # how many recent edits the dashboard shows
 THUMB_WIDTH = 460
 
@@ -68,11 +74,20 @@ def load_state() -> dict:
     state.setdefault("products", {})
     state.setdefault("skip", [])
     state.setdefault("checked", {})     # pid -> {"at":..., "fingerprint":...}
+
+    if state.get("detector_version") != DETECTOR_VERSION:
+        if state["checked"]:
+            print(f"Detection logic changed (v{state.get('detector_version')} "
+                  f"-> v{DETECTOR_VERSION}); re-examining every product once.")
+        state["checked"] = {}
+        state["detector_version"] = DETECTOR_VERSION
+
     return state
 
 
 def save_state(state: dict) -> None:
     os.makedirs(STATE_DIR, exist_ok=True)
+    state["detector_version"] = DETECTOR_VERSION
     state["runs"] = state["runs"][-40:]
     with open(STATE_FILE, "w") as fh:
         json.dump(state, fh, indent=1)
