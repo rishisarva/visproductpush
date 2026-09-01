@@ -1,0 +1,47 @@
+{
+ "runs": [
+  {
+   "at": "2026-09-01 19:10 UTC",
+   "checked": 183,
+   "edited": 1,
+   "images": 2,
+   "errors": 405,
+   "skipped": 0,
+   "changed": [
+    "23872"
+   ]
+  }
+ ],
+ "products": {
+  "23872": {
+   "name": "DICKIES OVERSIZED TSHIRT EMBROIDERY",
+   "url": "https://visionsjersey.com/product/dickies-oversized-tshirt-embroidery/",
+   "sku": "TS-dickies-oversized-tshirt-embroidery",
+   "original_images": [
+    23869,
+    23870,
+    23871
+   ],
+   "cleaned_indexes": [
+    0,
+    2
+   ],
+   "edits": [
+    {
+     "i": 0,
+     "old": 23869,
+     "new": 24064,
+     "reason": "logo (w/h 8.2, ink 37%)"
+    },
+    {
+     "i": 2,
+     "old": 23871,
+     "new": 24065,
+     "reason": "logo (w/h 8.5, ink 40%)"
+    }
+   ],
+   "last": "2026-09-01 19:10 UTC"
+  }
+ },
+ "skip": []
+}
