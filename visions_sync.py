@@ -319,6 +319,15 @@ class Woo:
                 break
         return [p for p in out if (p.get("sku") or "").startswith(sku_prefix)]
 
+    def find_by_sku(self, sku: str) -> int | None:
+        """Look up a product id by SKU, or None."""
+        try:
+            found = self.call("GET", "/products",
+                              params={"sku": sku, "status": "any"})
+        except RuntimeError:
+            return None
+        return found[0]["id"] if found else None
+
     def variations(self, product_id: int) -> list[dict]:
         out: list[dict] = []
         for page in range(1, 21):
@@ -499,7 +508,34 @@ class Syncer:
         else:
             payload["stock_status"] = "instock" if product.any_in_stock else "outofstock"
 
-        created = self.woo.call("POST", "/products", json=payload)
+        # WooCommerce briefly locks a SKU while it creates the product.
+        # If we hit that lock, wait for it to clear, then check whether the
+        # product actually landed before trying again.
+        created = None
+        for attempt in range(3):
+            try:
+                created = self.woo.call("POST", "/products", json=payload)
+                break
+            except RuntimeError as exc:
+                text = str(exc).lower()
+                locked = ("under processing" in text
+                          or "already present" in text
+                          or "duplicated sku" in text
+                          or "invalid or duplicated sku" in text)
+                if not locked or attempt == 2:
+                    raise
+                wait = 20 * (attempt + 1)
+                log.warning("SKU busy for %s, waiting %ss", product.sku, wait)
+                time.sleep(wait)
+                existing_id = self.woo.find_by_sku(product.sku)
+                if existing_id:
+                    log.info("   it landed anyway as #%s", existing_id)
+                    created = {"id": existing_id}
+                    break
+
+        if created is None:
+            raise RuntimeError(f"could not create {product.sku}")
+
         pid = created["id"]
 
         if variable:
@@ -830,7 +866,18 @@ def cmd_sync(args) -> int:
 
     log.info("-" * 60)
     log.info("Done in %.1fs — %s", time.time() - started, stats.summary())
-    return 1 if stats.errors else 0
+
+    # A handful of product-level failures is normal on shared hosting and
+    # should not stop the rest of the pipeline. Only fail the run if a large
+    # share of products errored, which means something is actually wrong.
+    if stats.errors and stats.errors > max(5, len(supplier) * 0.10):
+        log.error("Too many failures (%d) — flagging this run as failed",
+                  stats.errors)
+        return 1
+    if stats.errors:
+        log.warning("%d product(s) failed; they will be retried next run",
+                    stats.errors)
+    return 0
 
 
 def wipe_products(woo: Woo, everything: bool, dry_run: bool) -> tuple[int, int]:
