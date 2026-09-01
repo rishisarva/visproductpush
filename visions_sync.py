@@ -19,9 +19,9 @@ Setup
 -----
     pip install requests
 
-    export WC_URL="https://visionsjersey.com"
-    export WC_KEY="ck_0c9100540b2fe89305d0596728c5c54552eb15f2"
-    export WC_SECRET="cs_c67c3856517578a6fd9d9d53f8dc389e120fca8e"
+    export WC_URL=""
+    export WC_KEY=""
+    export WC_SECRET=""
 
 Cron, every 4 hours:
     0 */4 * * * cd /path/to && /usr/bin/python3 visions_sync.py sync >> sync.log 2>&1
