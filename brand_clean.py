@@ -103,7 +103,7 @@ def find_clip(img: Image.Image):
     min_thickness = max(4, int(h * 0.006))
     for y, m in rows:
         drop = wall - m
-        if 5 < drop < 55:
+        if 3 < drop < 70:
             run.append(y)
         else:
             if len(run) >= min_thickness:
@@ -245,7 +245,7 @@ def _sits_on_clip(img: Image.Image, box, band, explain: bool = False):
             return no(f"{label} too dark (lum {srf['lum']:.0f})")
         if srf["sd"] > 45:
             return no(f"{label} too uneven (sd {srf['sd']:.0f})")
-        if srf["sat"] > 0.30:
+        if srf["sat"] > 0.48:
             return no(f"{label} too colourful (sat {srf['sat']:.2f})")
     if abs(above["lum"] - below["lum"]) > 55:
         return no(f"uneven around mark ({abs(above['lum']-below['lum']):.0f})")
@@ -253,22 +253,38 @@ def _sits_on_clip(img: Image.Image, box, band, explain: bool = False):
     # the material must be warm wood, not white fabric
     warm = (above["warm"] + below["warm"]) / 2
     sat = (above["sat"] + below["sat"]) / 2
-    if warm < 14:
+    # Wood measured 22 on a reference photo, but lighting varies and genuine
+    # clips run as low as 8. Cool or neutral surfaces (white fabric, grey
+    # walls) sit at or below zero, so that is where the line belongs.
+    if warm < 5:
         return no(f"not warm enough for wood (R-B {warm:.0f})")
-    if sat < 0.055:
+    if sat < 0.035:
         return no(f"too neutral for wood (sat {sat:.3f})")
 
     # and there must be plain wall above the clip
     wall = sample(by0 - int(h * 0.06) - 4, by0 - 2,
                   int(w * 0.30), int(w * 0.70), max(1, int(w * 0.01)))
+    # There must be plain wall above the clip. This is what stops a player's
+    # name on a shirt being treated as branding, because a name has more
+    # fabric above it, not wall.
+    #
+    # Comparing warmth was wrong: walls and clips are often lit the same and
+    # score alike. What actually separates them is that a wall is bright and
+    # flat, while fabric is textured and folds into shadow.
     if not wall:
         return no("no wall sample above")
-    if wall["lum"] < 130:
+    if wall["lum"] < 120:
         return no(f"nothing wall-like above (lum {wall['lum']:.0f})")
-    if wall["warm"] > warm - 4:
-        return no(f"above is as warm as the clip ({wall['warm']:.0f} vs {warm:.0f})")
+    if wall["sd"] > 38:
+        return no(f"above the clip is textured, not wall (sd {wall['sd']:.0f})")
+    if wall["lum"] < clip_mean_of(above, below) - 25:
+        return no(f"above the clip is darker than the clip (lum {wall['lum']:.0f})")
 
     return yes()
+
+
+def clip_mean_of(above, below) -> float:
+    return (above["lum"] + below["lum"]) / 2
 
 
 def looks_like_logo(img: Image.Image, band, box, clip_mean: float,
