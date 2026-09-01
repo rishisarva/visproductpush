@@ -176,12 +176,9 @@ def find_clip(img: Image.Image):
         if len(keep2) >= 6:
             tx0, tx1 = min(keep2), max(keep2) + 1
 
-    # The branding always sits on the pale wooden clip. A garment collar is
-    # dark or coloured, so check what surrounds the mark: if it isn't pale,
-    # unsaturated and consistent above and below, this is not the clip.
-    if not _sits_on_clip(img, (tx0, ty0, tx1, ty1), (by0, by1)):
-        return (by0, by1), None, clip_mean
-
+    # Return whatever mark we found. Whether it is really supplier branding
+    # on a wooden clip is decided in looks_like_logo, which reports its
+    # reasoning — deciding it here would hide why an image was rejected.
     return (by0, by1), (tx0, ty0, tx1, ty1), clip_mean
 
 
