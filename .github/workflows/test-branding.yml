@@ -33,4 +33,4 @@ jobs:
           python pipeline.py auto \
             --max-products ${{ inputs.limit }} \
             --strict ${{ inputs.strict }} \
-            --recheck --explain --dry-run
+            --recheck --explain
