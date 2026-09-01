@@ -51,7 +51,7 @@ SKU_PREFIX = "TS-"
 # Bump this whenever the detection logic changes. Products checked under an
 # older version are looked at again automatically, so an improvement is never
 # hidden behind the memory of what was already inspected.
-DETECTOR_VERSION = 4
+DETECTOR_VERSION = 5
 
 KEEP_EDITS = 80          # how many recent edits the dashboard shows
 THUMB_WIDTH = 460
