@@ -19,9 +19,9 @@ Setup
 -----
     pip install requests
 
-    export WC_URL=""
-    export WC_KEY=""
-    export WC_SECRET=""
+    export WC_URL="https://visionsjersey.com"
+    export WC_KEY="ck_..."
+    export WC_SECRET="cs_..."
 
 Cron, every 4 hours:
     0 */4 * * * cd /path/to && /usr/bin/python3 visions_sync.py sync >> sync.log 2>&1
@@ -56,8 +56,8 @@ except ImportError:
 # ------------------------------------------------------------------ #
 
 WC_URL = "https://visionsjersey.com"
-WC_KEY = "ck_0c9100540b2fe89305d0596728c5c54552eb15f2"
-WC_SECRET = "cs_c67c3856517578a6fd9d9d53f8dc389e120fca8e"
+WC_KEY = "ck_paste_your_key_here"
+WC_SECRET = "cs_paste_your_secret_here"
 
 MARGIN = 170.0            # added to every supplier price: 440 -> 610
 
@@ -270,7 +270,7 @@ class Woo:
         self._term_cache: dict[int, set[str]] = {}
 
     def call(self, method: str, path: str, **kwargs) -> Any:
-        for attempt in range(4):
+        for attempt in range(6):
             try:
                 resp = self.session.request(method, self.base + path,
                                             timeout=self.timeout, **kwargs)
@@ -281,9 +281,19 @@ class Woo:
                 time.sleep(2 ** attempt)
                 continue
 
-            if resp.status_code in (429, 502, 503, 504) and attempt < 3:
-                log.warning("HTTP %s, retry %d", resp.status_code, attempt + 1)
-                time.sleep(2 ** attempt)
+            if resp.status_code in (429, 502, 503, 504) and attempt < 5:
+                wait = 2 ** attempt
+                if resp.status_code == 429:
+                    # the host is throttling us; back off hard and respect
+                    # Retry-After when the server sends one
+                    try:
+                        wait = max(wait, int(resp.headers.get("Retry-After", 0)))
+                    except ValueError:
+                        pass
+                    wait = max(wait, 5 * (attempt + 1))
+                log.warning("HTTP %s, waiting %ss (attempt %d)",
+                            resp.status_code, wait, attempt + 1)
+                time.sleep(wait)
                 continue
 
             if resp.status_code >= 400:
@@ -322,11 +332,32 @@ class Woo:
         return out
 
     def load_variations_bulk(self, products: list[dict],
-                             workers: int = 5) -> dict[int, list[dict]]:
+                             workers: int = 1,
+                             pause: float = 0.25) -> dict[int, list[dict]]:
+        """
+        Read variations for every variable product.
+
+        Deliberately gentle: shared hosts rate-limit aggressively, and a
+        burst of parallel requests earns a 429 that costs far more time
+        than the pauses do.
+        """
         variable = [p for p in products if p.get("type") == "variable"]
         result: dict[int, list[dict]] = {}
         if not variable:
             return result
+
+        if workers <= 1:
+            for i, p in enumerate(variable, start=1):
+                try:
+                    result[p["id"]] = self.variations(p["id"])
+                except Exception as exc:  # noqa: BLE001
+                    log.error("Could not read variations for #%s: %s", p["id"], exc)
+                    result[p["id"]] = []
+                if i % 50 == 0:
+                    log.info("   read variations for %d/%d", i, len(variable))
+                time.sleep(pause)
+            return result
+
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {pool.submit(self.variations, p["id"]): p["id"]
                        for p in variable}
@@ -640,7 +671,10 @@ class Syncer:
         existing_list = self.woo.list_products(SKU_PREFIX)
         log.info("Found %d previously synced products", len(existing_list))
 
-        variations_map = self.woo.load_variations_bulk(existing_list)
+        variations_map = self.woo.load_variations_bulk(
+            existing_list,
+            workers=getattr(self.args, 'workers', 1),
+            pause=getattr(self.args, 'read_pause', 0.25))
         by_sku = {p["sku"]: p for p in existing_list}
         supplier_by_sku = {p.sku: p for p in supplier}
 
@@ -702,11 +736,13 @@ def require_keys(args) -> None:
 def load_supplier(args) -> list[SupplierProduct]:
     products = fetch_supplier(args.supplier, args.collection, args.margin,
                               args.round_to, args.keep_html)
+
     override = getattr(args, "attribute_name", "")
     if override:
-        for item in products:
-            if item.option_name:
-                item.option_name = override
+        for p in products:
+            if p.option_name:
+                p.option_name = override
+
     if args.skip_sold_out:
         before = len(products)
         products = [p for p in products if p.any_in_stock]
@@ -911,7 +947,10 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--wc-url", default=os.getenv("WC_URL") or WC_URL)
         sp.add_argument("--wc-key", default=os.getenv("WC_KEY") or WC_KEY)
         sp.add_argument("--wc-secret", default=os.getenv("WC_SECRET") or WC_SECRET)
-        sp.add_argument("--attribute-name", default="")
+        sp.add_argument("--attribute-name", default="",
+                        help="Use this WooCommerce attribute name instead of the "
+                             "supplier's, e.g. 'Sizes' to match an existing "
+                             "attribute that already has swatches configured")
         sp.add_argument("--skip-sold-out", action="store_true",
                         help="Ignore products where every size is out of stock")
         sp.add_argument("--dry-run", action="store_true")
@@ -922,8 +961,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     def sync_flags(sp):
         sp.add_argument("--limit", type=int, default=0, help="Only process N products")
-        sp.add_argument("--throttle", type=float, default=0.15,
+        sp.add_argument("--throttle", type=float, default=0.35,
                         help="Pause between products, seconds")
+        sp.add_argument("--workers", type=int, default=1,
+                        help="Parallel reads. 1 is safest on shared hosting.")
+        sp.add_argument("--read-pause", type=float, default=0.25,
+                        help="Pause between variation reads, seconds")
         sp.add_argument("--max-images", type=int, default=6,
                         help="Images per product on first creation")
         sp.add_argument("--variant-images", action="store_true",
