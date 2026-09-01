@@ -2,22 +2,49 @@ name: Sync products
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '0 */4 * * *'      # every 4 hours
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
       - run: pip install -r requirements.txt
-      - name: Run sync
+
+      - name: Sync prices and stock
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
         run: python visions_sync.py sync --attribute-name "sizes" --skip-sold-out
+
+      - name: Clean supplier branding
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: python pipeline.py auto
+
+      - name: Save results
+        run: |
+          git config user.name  "sync bot"
+          git config user.email "actions@github.com"
+          git add -A state docs
+          git diff --staged --quiet || git commit -m "run $(date -u '+%Y-%m-%d %H:%M')"
+          git push
