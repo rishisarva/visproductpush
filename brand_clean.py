@@ -223,10 +223,22 @@ def _sits_on_clip(img: Image.Image, box, band, explain: bool = False):
         return {"lum": statistics.mean(lum), "sd": statistics.pstdev(lum),
                 "warm": r - b, "sat": 0 if mx == 0 else (mx - mn) / mx}
 
-    above = sample(y0 - pad, y0, x0, x1, stride)
-    below = sample(y1, y1 + pad, x0, x1, stride)
-    if not above or not below:
-        return no("not enough surrounding pixels")
+    # Both samples must come from the clip itself. Sampling past the clip's
+    # lower edge hits the garment collar, which is dark, and that was
+    # rejecting most genuine logos as "below too dark".
+    by1 = band[1]
+    above = sample(max(by0, y0 - pad), y0, x0, x1, stride)
+    below = sample(y1, min(by1 + 1, y1 + pad), x0, x1, stride)
+
+    # When the mark sits hard against an edge of the clip there may be no
+    # room on that side. Fall back to the side we do have rather than
+    # judging the image on pixels that are not clip at all.
+    if not above and not below:
+        return no("no clip pixels around the mark")
+    if not above:
+        above = below
+    if not below:
+        below = above
 
     for label, srf in (("above", above), ("below", below)):
         if srf["lum"] < 100:
