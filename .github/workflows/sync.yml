@@ -41,7 +41,7 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-        run: python pipeline.py auto
+        run: python pipeline.py auto --max-products 250
 
       - name: Save results
         run: |
