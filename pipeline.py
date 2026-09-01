@@ -30,6 +30,7 @@ import json
 import os
 import sys
 import time
+from collections import Counter
 from datetime import datetime, timezone
 
 try:
@@ -108,6 +109,7 @@ def cmd_auto(args) -> int:
 
     run = {"at": now_iso(), "checked": 0, "edited": 0,
            "images": 0, "errors": 0, "skipped": len(skip)}
+    why = Counter()          # why images were left alone
     changed_products: list[dict] = []
 
     # Work through the catalogue in small batches. The host throttles image
@@ -125,7 +127,8 @@ def cmd_auto(args) -> int:
             continue
         fingerprint = ",".join(str(i.get("id")) for i in p.get("images", []))
         seen = state["checked"].get(pid)
-        if seen and seen.get("fingerprint") == fingerprint:
+        if (not getattr(args, "recheck", False)
+                and seen and seen.get("fingerprint") == fingerprint):
             continue                    # unchanged since we last looked
         queue.append(p)
 
@@ -177,6 +180,9 @@ def cmd_auto(args) -> int:
                 ok, reason = looks_like_logo(img, band, box, cm, args.strict)
 
             if not ok:
+                why[reason.split("(")[0].strip()] += 1
+                if getattr(args, "explain", False):
+                    print(f"  skip {name[:38]} image {idx}: {reason}")
                 if media_id:
                     new_list.append({"id": media_id})
                 continue
@@ -265,6 +271,11 @@ def cmd_auto(args) -> int:
     print(f"\nChecked {run['checked']} products, "
           f"edited {run['edited']} ({run['images']} images), "
           f"{run['errors']} errors.")
+
+    if why:
+        print("\nImages left alone, by reason:")
+        for reason, count in why.most_common():
+            print(f"  {count:5d}  {reason}")
     return 0
 
 
@@ -539,6 +550,10 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--max-products", type=int, default=25,
                    help="Products to inspect per run. Small keeps runs short "
                         "and stays under the host's rate limits.")
+    a.add_argument("--recheck", action="store_true",
+                   help="Ignore what was checked before and look at everything")
+    a.add_argument("--explain", action="store_true",
+                   help="Print why each image was left alone")
     a.add_argument("--dry-run", action="store_true")
 
     for name, help_text in (("revert", "Put the original images back"),
