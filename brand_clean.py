@@ -185,7 +185,7 @@ def find_clip(img: Image.Image):
     return (by0, by1), (tx0, ty0, tx1, ty1), clip_mean
 
 
-def _sits_on_clip(img: Image.Image, box, band) -> bool:
+def _sits_on_clip(img: Image.Image, box, band, explain: bool = False):
     """
     True only if this really is the hanger clip.
 
@@ -200,8 +200,14 @@ def _sits_on_clip(img: Image.Image, box, band) -> bool:
     x0, y0, x1, y1 = box
     by0 = band[0]
 
+    def no(msg):
+        return (False, msg) if explain else False
+
+    def yes():
+        return (True, "ok") if explain else True
+
     if y0 > h * 0.45:            # a clip hangs near the top of the frame
-        return False
+        return no(f"too low in frame (y {y0/h:.2f})")
 
     pad = max(3, (y1 - y0))
     stride = max(1, (x1 - x0) // 40)
@@ -223,31 +229,37 @@ def _sits_on_clip(img: Image.Image, box, band) -> bool:
     above = sample(y0 - pad, y0, x0, x1, stride)
     below = sample(y1, y1 + pad, x0, x1, stride)
     if not above or not below:
-        return False
+        return no("not enough surrounding pixels")
 
-    for srf in (above, below):
-        if srf["lum"] < 100 or srf["sd"] > 45 or srf["sat"] > 0.30:
-            return False
+    for label, srf in (("above", above), ("below", below)):
+        if srf["lum"] < 100:
+            return no(f"{label} too dark (lum {srf['lum']:.0f})")
+        if srf["sd"] > 45:
+            return no(f"{label} too uneven (sd {srf['sd']:.0f})")
+        if srf["sat"] > 0.30:
+            return no(f"{label} too colourful (sat {srf['sat']:.2f})")
     if abs(above["lum"] - below["lum"]) > 55:
-        return False
+        return no(f"uneven around mark ({abs(above['lum']-below['lum']):.0f})")
 
     # the material must be warm wood, not white fabric
     warm = (above["warm"] + below["warm"]) / 2
     sat = (above["sat"] + below["sat"]) / 2
-    if warm < 14 or sat < 0.055:
-        return False
+    if warm < 14:
+        return no(f"not warm enough for wood (R-B {warm:.0f})")
+    if sat < 0.055:
+        return no(f"too neutral for wood (sat {sat:.3f})")
 
     # and there must be plain wall above the clip
     wall = sample(by0 - int(h * 0.06) - 4, by0 - 2,
                   int(w * 0.30), int(w * 0.70), max(1, int(w * 0.01)))
     if not wall:
-        return False
+        return no("no wall sample above")
     if wall["lum"] < 130:
-        return False
+        return no(f"nothing wall-like above (lum {wall['lum']:.0f})")
     if wall["warm"] > warm - 4:
-        return False
+        return no(f"above is as warm as the clip ({wall['warm']:.0f} vs {warm:.0f})")
 
-    return True
+    return yes()
 
 
 def looks_like_logo(img: Image.Image, band, box, clip_mean: float,
@@ -288,8 +300,10 @@ def looks_like_logo(img: Image.Image, band, box, clip_mean: float,
     if ink > 75 / max(0.5, strict):
         return False, f"solid block ({ink:.0f}%)"
 
-    if not _sits_on_clip(img, box, band):
-        return False, "not on the wooden clip"
+    verdict = _sits_on_clip(img, box, band, explain=True)
+    ok_clip, why = verdict if isinstance(verdict, tuple) else (verdict, "")
+    if not ok_clip:
+        return False, f"rejected: {why}"
 
     return True, note
 
