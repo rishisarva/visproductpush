@@ -375,10 +375,37 @@ class Site:
                 break
         return [p for p in out if (p.get("sku") or "").startswith(SKU_PREFIX)]
 
-    def download(self, url: str) -> Image.Image:
-        r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
-        r.raise_for_status()
-        return Image.open(io.BytesIO(r.content))
+    def download(self, url: str, attempts: int = 5) -> Image.Image:
+        """
+        Fetch an image, backing off when the host throttles us.
+
+        Shared hosting rate-limits plain file requests as well as the API,
+        and a burst of image downloads trips it within seconds. Waiting is
+        far cheaper than losing the image.
+        """
+        last = None
+        for attempt in range(attempts):
+            try:
+                r = requests.get(url, headers={"User-Agent": UA}, timeout=60)
+            except requests.RequestException as exc:
+                last = exc
+                time.sleep(3 * (attempt + 1))
+                continue
+
+            if r.status_code == 429 or r.status_code in (502, 503, 504):
+                wait = 5 * (attempt + 1)
+                try:
+                    wait = max(wait, int(r.headers.get("Retry-After", 0)))
+                except ValueError:
+                    pass
+                if attempt < attempts - 1:
+                    time.sleep(wait)
+                    continue
+
+            r.raise_for_status()
+            return Image.open(io.BytesIO(r.content))
+
+        raise RuntimeError(f"could not fetch image after {attempts} tries: {last}")
 
     def check_media(self) -> None:
         r = self.wp.get(f"{self.root}/wp-json/wp/v2/media",
