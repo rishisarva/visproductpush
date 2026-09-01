@@ -1,0 +1,57 @@
+name: Fix a product
+
+# Run this from your phone: GitHub app or website, Actions tab,
+# pick this workflow, tap Run workflow, choose what to do.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'What to do'
+        required: true
+        type: choice
+        default: revert
+        options:
+          - revert     # put the original images back, and never touch it again
+          - draft      # hide the product from the shop (not deleted)
+          - skip       # leave this product alone from now on
+          - unskip     # allow it to be cleaned again
+      products:
+        description: 'Product ids, comma separated (from the dashboard)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+
+      - name: Apply
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: python pipeline.py "${{ inputs.action }}" --products "${{ inputs.products }}"
+
+      - name: Save results
+        run: |
+          git config user.name  "sync bot"
+          git config user.email "actions@github.com"
+          git add -A state docs
+          git diff --staged --quiet || git commit -m "${{ inputs.action }} ${{ inputs.products }}"
+          git push
