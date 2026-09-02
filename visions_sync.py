@@ -46,6 +46,8 @@ try:
 except ImportError:
     sys.exit("Missing dependency. Run:  pip install requests")
 
+import sync_cloud
+
 
 # ==========================================================================
 # Settings
@@ -438,6 +440,8 @@ class Stats:
     relisted: int = 0
     drafted: int = 0
     unchanged: int = 0
+    blocked_skipped: int = 0
+    blocked_removed: int = 0
     errors: int = 0
 
     def summary(self) -> str:
@@ -446,6 +450,7 @@ class Stats:
             f"stock changes {self.stock_updates} | sizes +{self.sizes_added} "
             f"-{self.sizes_retired} | relisted {self.relisted} | "
             f"drafted {self.drafted} | unchanged {self.unchanged} | "
+            f"blocked {self.blocked_skipped + self.blocked_removed} | "
             f"errors {self.errors}"
         )
 
@@ -518,13 +523,29 @@ class Syncer:
                 break
             except RuntimeError as exc:
                 text = str(exc).lower()
-                locked = ("under processing" in text
-                          or "already present" in text
-                          or "duplicated sku" in text
-                          or "invalid or duplicated sku" in text)
-                if not locked or attempt == 2:
+
+                if "under processing" in text:
+                    # WooCommerce could not claim a lock on this SKU, so it
+                    # deleted the product it had just made. This is almost
+                    # always an orphaned SKU row left in wc_product_meta_lookup
+                    # by an earlier deleted product. Waiting never clears it,
+                    # so fail fast with something actionable.
+                    existing_id = self.woo.find_by_sku(product.sku)
+                    if existing_id:
+                        log.info("   it landed anyway as #%s", existing_id)
+                        created = {"id": existing_id}
+                        break
+                    raise RuntimeError(
+                        f"SKU {product.sku} is blocked by a stale database row. "
+                        f"No product actually uses it. Clear the orphaned row "
+                        f"from wc_product_meta_lookup to fix this permanently."
+                    ) from None
+
+                transient = ("already present" in text
+                             or "duplicated sku" in text)
+                if not transient or attempt == 2:
                     raise
-                wait = 20 * (attempt + 1)
+                wait = 15 * (attempt + 1)
                 log.warning("SKU busy for %s, waiting %ss", product.sku, wait)
                 time.sleep(wait)
                 existing_id = self.woo.find_by_sku(product.sku)
@@ -707,6 +728,28 @@ class Syncer:
         existing_list = self.woo.list_products(SKU_PREFIX)
         log.info("Found %d previously synced products", len(existing_list))
 
+        # Products the owner removed in the app. These are deleted if present
+        # and never created again, however often this runs.
+        self.blocked = sync_cloud.blocked_skus()
+        if self.blocked:
+            log.info("Blocklist holds %d product(s)", len(self.blocked))
+            for prod in existing_list:
+                sku = prod.get("sku")
+                if sku in self.blocked:
+                    try:
+                        self.woo.call("DELETE", f"/products/{prod['id']}",
+                                      params={"force": True})
+                        log.info("REMOVED %s (blocked in app)",
+                                 prod.get("name", "")[:46])
+                        self.stats.blocked_removed += 1
+                    except Exception as exc:  # noqa: BLE001
+                        log.error("Could not remove blocked %s: %s", sku, exc)
+            existing_list = [p for p in existing_list
+                             if p.get("sku") not in self.blocked]
+            before = len(supplier)
+            supplier = [p for p in supplier if p.sku not in self.blocked]
+            self.stats.blocked_skipped = before - len(supplier)
+
         variations_map = self.woo.load_variations_bulk(
             existing_list,
             workers=getattr(self.args, 'workers', 1),
@@ -864,8 +907,25 @@ def cmd_sync(args) -> int:
     woo = Woo(args.wc_url, args.wc_key, args.wc_secret)
     stats = Syncer(woo, args).run(supplier)
 
+    elapsed = time.time() - started
     log.info("-" * 60)
-    log.info("Done in %.1fs — %s", time.time() - started, stats.summary())
+    log.info("Done in %.1fs — %s", elapsed, stats.summary())
+
+    # Tell the app what happened, and mirror the catalogue so its grid loads
+    # instantly even on a phone the site's wall will not talk to.
+    try:
+        live = woo.list_products(SKU_PREFIX)
+        sync_cloud.snapshot_products(live)
+        sync_cloud.report_run(
+            stats,
+            supplier_products=len(supplier),
+            site_products=len(live),
+            seconds=elapsed,
+            blocked=stats.blocked_skipped + stats.blocked_removed,
+        )
+        log.info("Reported to the app (%d products mirrored)", len(live))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Could not report to the app: %s", exc)
 
     # A handful of product-level failures is normal on shared hosting and
     # should not stop the rest of the pipeline. Only fail the run if a large
