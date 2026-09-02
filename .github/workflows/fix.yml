@@ -12,13 +12,15 @@ on:
         type: choice
         default: revert
         options:
+          - undo-last  # undo everything the most recent run changed
           - revert     # put the original images back, and never touch it again
           - draft      # hide the product from the shop (not deleted)
           - skip       # leave this product alone from now on
           - unskip     # allow it to be cleaned again
       products:
-        description: 'Product ids, comma separated (from the dashboard)'
-        required: true
+        description: 'Product ids, comma separated. Leave as - for undo-last.'
+        required: false
+        default: '-'
         type: string
 
 permissions:
@@ -46,7 +48,12 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-        run: python pipeline.py "${{ inputs.action }}" --products "${{ inputs.products }}"
+        run: |
+          if [ "${{ inputs.action }}" = "undo-last" ]; then
+            python pipeline.py undo-last
+          else
+            python pipeline.py "${{ inputs.action }}" --products "${{ inputs.products }}"
+          fi
 
       - name: Save results
         run: |
