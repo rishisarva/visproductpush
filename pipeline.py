@@ -578,6 +578,30 @@ with the product id.</div>
     open(f"{DOCS_DIR}/.nojekyll", "w").close()
 
 
+def probe(img, name, idx, src):
+    """Record what OCR actually sees, so a miss can be diagnosed."""
+    from PIL import ImageOps, ImageFilter
+    import pytesseract, os.path
+
+    W, H = img.size
+    out = [f"{name[:38]} image {idx}",
+           f"    file {os.path.basename(src.split('?')[0])[:52]}",
+           f"    size {W}x{H} mode={img.mode}"]
+    for scale, sharp, psm in ((3, False, 6), (2, True, 11), (5, False, 6)):
+        g = img.crop((int(W * .10), 0, int(W * .90), int(H * .40))).convert("L")
+        g = g.resize((int(g.width * scale), int(g.height * scale)), Image.LANCZOS)
+        g = ImageOps.autocontrast(g)
+        if sharp:
+            g = g.filter(ImageFilter.UnsharpMask(3, 200, 3))
+        try:
+            txt = pytesseract.image_to_string(g, config=f"--psm {psm}")
+        except Exception as exc:  # noqa: BLE001
+            txt = f"<{exc}>"
+        flat = " ".join(txt.split())[:90]
+        out.append(f"    x{scale}{'s' if sharp else ' '} psm{psm} ({g.width}px): {flat!r}")
+    return "\n".join(out)
+
+
 def cmd_score(args) -> int:
     """Report which images carry the supplier mark. Changes nothing."""
     site = Site(args)
@@ -588,7 +612,7 @@ def cmd_score(args) -> int:
         products = products[:args.max_products]
         print(f"limited to {len(products)} products\n")
 
-    hits, misses = [], 0
+    hits, misses, debug = [], 0, []
     for i, product in enumerate(products, start=1):
         name = product.get("name", "")
         for idx, image in enumerate(product.get("images", [])):
@@ -601,6 +625,10 @@ def cmd_score(args) -> int:
             except Exception as exc:  # noqa: BLE001
                 print(f"  ! {name[:34]} image {idx}: {exc}")
                 continue
+
+            if getattr(args, "debug", 0) and len(debug) < args.debug:
+                debug.append(probe(img, name, idx, src))
+
             if hit:
                 W, H = img.size
                 hits.append((product["id"], name[:40], idx,
@@ -626,6 +654,10 @@ def cmd_score(args) -> int:
         by_product.setdefault(pid, name)
     lines += ["", f"{len(by_product)} products carry the mark:", ""]
     lines += [f"  {pid}  {name}" for pid, name in sorted(by_product.items())]
+
+    if debug:
+        lines += ["", "=" * 78, "What OCR reads on the first few images", "=" * 78, ""]
+        lines += debug
 
     report = "\n".join(lines)
     print(report, flush=True)
@@ -695,6 +727,8 @@ def build_parser() -> argparse.ArgumentParser:
     common(sc)
     sc.add_argument("--max-products", type=int, default=0,
                     help="Only look at this many products (0 = all)")
+    sc.add_argument("--debug", type=int, default=0,
+                    help="Record what OCR actually reads on this many images")
 
     b = sub.add_parser("build", help="Rebuild the dashboard from saved state")
     common(b)
