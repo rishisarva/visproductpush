@@ -610,14 +610,32 @@ def cmd_score(args) -> int:
                 misses += 1
             time.sleep(args.delay)
         if i % 20 == 0:
-            print(f"  ...{i}/{len(products)}")
+            print(f"  ...{i}/{len(products)}", flush=True)
 
-    print(f"\nFound the mark on {len(hits)} images; {misses} had none.\n")
-    print(f"{'id':>7} {'img':>3}  where                      read as")
-    print("-" * 78)
+    lines = [f"Wordmark report - {now_iso()}",
+             f"Found the mark on {len(hits)} images; {misses} had none.",
+             "",
+             f"{'id':>7} {'img':>3}  where                      product",
+             "-" * 78]
     for pid, name, idx, x0, x1, y0, y1, text in hits:
-        print(f"{pid:>7} {idx:>3}  x {x0:.2f}-{x1:.2f} y {y0:.2f}-{y1:.2f}  "
-              f"{text}  {name}")
+        lines.append(f"{pid:>7} {idx:>3}  "
+                     f"x {x0:.2f}-{x1:.2f} y {y0:.2f}-{y1:.2f}  {name}")
+
+    by_product = {}
+    for pid, name, *_ in hits:
+        by_product.setdefault(pid, name)
+    lines += ["", f"{len(by_product)} products carry the mark:", ""]
+    lines += [f"  {pid}  {name}" for pid, name in sorted(by_product.items())]
+
+    report = "\n".join(lines)
+    print(report, flush=True)
+
+    # Also write it to the repo, because a log this long often gets dropped
+    # by the Actions viewer and then the run looks like it did nothing.
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    with open(f"{DOCS_DIR}/report.txt", "w") as fh:
+        fh.write(report + "\n")
+    print(f"\nwritten to {DOCS_DIR}/report.txt", flush=True)
     return 0
 
 
