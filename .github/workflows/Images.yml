@@ -38,6 +38,10 @@ jobs:
           python-version: '3.12'
       - run: pip install -r requirements.txt
 
+      - name: Install OCR
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr
+
+
       - name: Run
         env:
           WC_URL: ${{ secrets.WC_URL }}
