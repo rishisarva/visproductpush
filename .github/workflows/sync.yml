@@ -37,7 +37,7 @@ jobs:
 
       # Find and remove supplier branding on any new or changed images.
       - name: Clean supplier branding
-        continue-on-error: true
+        continue-on-error: true 
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
