@@ -1,11 +1,15 @@
-Wordmark report - 2026-09-02 11:01 UTC
-Found the mark on 0 images; 31 had none.
+Wordmark report - 2026-09-02 11:59 UTC
+Found the mark on 2 images; 511 had none.
 
      id img  where                      product
 ------------------------------------------------------------------------------
+  23898   1  x 0.42-0.62 y 0.17-0.20  ATLETICO MADRID WONDER WOMEN SPECIAL EDI
+  23844   0  x 0.48-0.55 y 0.12-0.13  INTERMIAMI FLAME EDITION KIT MESSI EMBRO
 
-0 products carry the mark:
+2 products carry the mark:
 
+  23844  INTERMIAMI FLAME EDITION KIT MESSI EMBRO
+  23898  ATLETICO MADRID WONDER WOMEN SPECIAL EDI
 
 ==============================================================================
 What OCR reads on the first few images
