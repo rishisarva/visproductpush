@@ -1,12 +1,73 @@
-Wordmark report - 2026-09-02 10:30 UTC
-Found the mark on 2 images; 511 had none.
+Wordmark report - 2026-09-02 11:01 UTC
+Found the mark on 0 images; 31 had none.
 
      id img  where                      product
 ------------------------------------------------------------------------------
-  23898   1  x 0.42-0.62 y 0.17-0.20  ATLETICO MADRID WONDER WOMEN SPECIAL EDI
-  23844   0  x 0.48-0.55 y 0.12-0.13  INTERMIAMI FLAME EDITION KIT MESSI EMBRO
 
-2 products carry the mark:
+0 products carry the mark:
 
-  23844  INTERMIAMI FLAME EDITION KIT MESSI EMBRO
-  23898  ATLETICO MADRID WONDER WOMEN SPECIAL EDI
+
+==============================================================================
+What OCR reads on the first few images
+==============================================================================
+
+ARGENTINA 2026 AWAY KIT MESSI FULLSLEE image 0
+    file 24021_0-clean.jpg
+    size 655x863 mode=RGB
+    x3  psm6 (1572px): '{ ay) > kK / If 206) i'
+    x2s psm11 (1048px): '=) ) VD Kah m=) ='
+    x5  psm6 (2620px): '{ | . ee > 9 a a'
+ARGENTINA 2026 AWAY KIT MESSI FULLSLEE image 1
+    file C-2026-07-14T192851.728.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): '"ew'
+    x2s psm11 (1050px): 'as Yi.'
+    x5  psm6 (2625px): ''
+ARGENTINA 2026 AWAY KIT MESSI FULLSLEE image 2
+    file B-2026-07-14T192855.301.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): ') a7 ’ \\ ~AN _— f i MESSI | ( } Ne ny'
+    x2s psm11 (1050px): 'mA aS ee t ey aN NE sal N| ; |'
+    x5  psm6 (2625px): ') \\ "i i | ; \\ Ss ww A MESSI) a \\'
+PSG 26-27 HOME KIT DEMBELE EMBROIDERY  image 0
+    file F-2026-09-01T185325.555.png
+    size 655x863 mode=RGBA
+    x3  psm6 (1572px): 'Mh'
+    x2s psm11 (1048px): '®'
+    x5  psm6 (2620px): '| ) YE J ='
+PSG 26-27 HOME KIT DEMBELE EMBROIDERY  image 1
+    file C-2026-09-01T185329.296.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): 'Awe 4.'
+    x2s psm11 (1050px): 'o——— ut'
+    x5  psm6 (2625px): 'a Awe 4'
+PSG 26-27 HOME KIT DEMBELE EMBROIDERY  image 2
+    file B-2026-09-01T185332.886.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): 'wll O.DEMBELE yy'
+    x2s psm11 (1050px): 's eae \\'
+    x5  psm6 (2625px): 'wl O.DEMBELE a ae'
+BARCELONA 26-27 HOME KIT CUBARSI EMBRO image 0
+    file F-2026-07-26T145203.717-1.png
+    size 655x863 mode=RGBA
+    x3  psm6 (1572px): '| Z Wie) ca a 3 Bi'
+    x2s psm11 (1048px): 'ee / | YY, I'
+    x5  psm6 (2620px): '| Z ¥ pall iC'
+BARCELONA 26-27 HOME KIT CUBARSI EMBRO image 1
+    file C-2026-07-26T145207.035-1.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): 'a Pe'
+    x2s psm11 (1050px): 'enolase | —— I,'
+    x5  psm6 (2625px): 'C (ee),'
+BARCELONA 26-27 HOME KIT CUBARSI EMBRO image 2
+    file C-2026-07-26T145210.357-1.png
+    size 656x863 mode=RGBA
+    x3  psm6 (1575px): '’'
+    x2s psm11 (1050px): 'iz i>'
+    x5  psm6 (2625px): ''
+BARCELONA 26-27 HOME KIT CUBARSI EMBRO image 3
+    file 23992_3-clean.jpg
+    size 656x863 mode=RGB
+    x3  psm6 (1575px): ') j Y \\ CUBARS/ C3 le , or'
+    x2s psm11 (1050px): 'waar seen i CUBARS/ oS &'
+    x5  psm6 (2625px): ') J ; \\ CUBARS/ ey le | om'
