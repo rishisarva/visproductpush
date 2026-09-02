@@ -49,11 +49,12 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-        run: python pipeline.py "${{ inputs.mode }}"
+        run: python -u pipeline.py "${{ inputs.mode }}"
 
-      # score changes nothing, so there is usually nothing to save
+      # always commit: score writes docs/report.txt, which is the only
+      # reliable way to read a long report if the Actions log drops it
       - name: Save results
-        if: ${{ inputs.mode != 'score' }}
+        if: always()
         run: |
           git config user.name  "sync bot"
           git config user.email "actions@github.com"
