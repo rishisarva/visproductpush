@@ -15,10 +15,14 @@ on:
         options:
           - score        # report a match score for every image, change nothing
           - undo-last    # put back everything the last run changed
-      threshold:
-        description: 'Only used later, when cleaning by score'
+      limit:
+        description: 'Products to check (0 = all)'
         required: false
-        default: '0.30'
+        default: '0'
+      debug:
+        description: 'Record what OCR reads on this many images'
+        required: false
+        default: '0'
 
 permissions:
   contents: write
@@ -49,7 +53,14 @@ jobs:
           WC_SECRET: ${{ secrets.WC_SECRET }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
-        run: python -u pipeline.py "${{ inputs.mode }}"
+        run: |
+          if [ "${{ inputs.mode }}" = "score" ]; then
+            python -u pipeline.py score \
+              --max-products ${{ inputs.limit }} \
+              --debug ${{ inputs.debug }}
+          else
+            python -u pipeline.py "${{ inputs.mode }}"
+          fi
 
       # always commit: score writes docs/report.txt, which is the only
       # reliable way to read a long report if the Actions log drops it
