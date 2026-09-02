@@ -2,13 +2,20 @@ name: Sync products
 
 on:
   schedule:
-    - cron: '0 */2 * * *'      # every 2 hours, UTC
-  workflow_dispatch:            # also lets you run it by hand from the Actions tab
+    - cron: '0 */4 * * *'      # every 4 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -16,12 +23,24 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-      - name: Run sync
+      # Prices, stock and sizes.
+      # Image cleanup is deliberately not here yet: it goes back in once the
+      # wordmark threshold is settled in the Images workflow.
+      - name: Sync prices and stock
+        continue-on-error: true
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
         run: python visions_sync.py sync --attribute-name "sizes" --skip-sold-out
+
+      - name: Save results
+        run: |
+          git config user.name  "sync bot"
+          git config user.email "actions@github.com"
+          git add -A state docs
+          git diff --staged --quiet || git commit -m "sync $(date -u '+%Y-%m-%d %H:%M')"
+          git pull --rebase --autostash || true
+          git push
