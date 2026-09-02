@@ -13,8 +13,9 @@ on:
         type: choice
         default: score
         options:
-          - score        # report a match score for every image, change nothing
-          - undo-last    # put back everything the last run changed
+          - score        # report which images carry the mark, change nothing
+          - restore-all  # put EVERY product back to its original images
+          - undo-last    # put back only what the most recent run changed
       limit:
         description: 'Products to check (0 = all)'
         required: false
