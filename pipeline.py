@@ -40,6 +40,7 @@ except ImportError:
     sys.exit("Missing dependencies. Run:  pip install requests pillow")
 
 from brand_clean import find_clip, looks_like_logo, clean, crop_around, Site
+from wordmark import find_wordmark
 
 
 STATE_DIR = "state"
@@ -580,6 +581,61 @@ with the product id.</div>
     open(f"{DOCS_DIR}/.nojekyll", "w").close()
 
 
+def cmd_score(args) -> int:
+    """
+    Score every image against the wordmark template and report.
+
+    Changes nothing. The point is to see, across the whole catalogue, where
+    branded and clean images actually fall so the threshold can be chosen
+    from data instead of guessed.
+    """
+    site = Site(args)
+    products = site.products()
+    print(f"{len(products)} products\n")
+
+    rows = []
+    for i, product in enumerate(products, start=1):
+        name = product.get("name", "")
+        for idx, image in enumerate(product.get("images", [])):
+            src = image.get("src")
+            if not src:
+                continue
+            try:
+                img = site.download(src)
+            except Exception as exc:  # noqa: BLE001
+                print(f"  ! {name[:34]} image {idx}: {exc}")
+                continue
+
+            band, _, _ = find_clip(img)
+            if band:
+                W, H = img.size
+                by0, by1 = band
+                pad = int((by1 - by0) * 1.2) + 4
+                crop = img.crop((0, max(0, by0 - pad), W, min(H, by1 + pad)))
+                score, _ = find_wordmark(crop, search_top=1.0)
+            else:
+                score, _ = find_wordmark(img)
+
+            rows.append((score, f"{product['id']}", name[:40], idx))
+            time.sleep(args.delay)
+
+        if i % 20 == 0:
+            print(f"  ...{i}/{len(products)}")
+
+    rows.sort(reverse=True)
+    print("\nWordmark match scores, highest first")
+    print(f"{'score':>7}  {'id':>7}  {'img':>3}  product")
+    print("-" * 74)
+    for score, pid, name, idx in rows:
+        print(f"{score:7.3f}  {pid:>7}  {idx:>3}  {name}")
+
+    print("-" * 74)
+    for cut in (0.20, 0.25, 0.30, 0.35, 0.40):
+        n = sum(1 for r in rows if r[0] >= cut)
+        print(f"  threshold {cut:.2f} -> {n} images would be treated as branded")
+    return 0
+
+
 def cmd_build(args) -> int:
     state = load_state()
     build_dashboard(state)
@@ -631,6 +687,10 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Undo every edit the most recent run made")
     common(u)
 
+    sc = sub.add_parser("score",
+                        help="Score every image against the wordmark, change nothing")
+    common(sc)
+
     b = sub.add_parser("build", help="Rebuild the dashboard from saved state")
     common(b)
 
@@ -641,7 +701,7 @@ def main() -> None:
     args = build_parser().parse_args()
     handlers = {"auto": cmd_auto, "revert": cmd_revert, "draft": cmd_draft,
                 "skip": cmd_skip, "unskip": cmd_unskip, "build": cmd_build,
-                "undo-last": cmd_undo_last}
+                "undo-last": cmd_undo_last, "score": cmd_score}
     sys.exit(handlers[args.command](args))
 
 
