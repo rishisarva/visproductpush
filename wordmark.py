@@ -34,14 +34,13 @@ except ImportError:
 NEEDLES = ("thayyilsports", "thayyil", "hayyilsports", "hayyil", "ayyils", "thayy")
 
 # Tried in order, cheapest first; the first that reads the mark wins.
+# Only the settings that actually read the mark in testing, cheapest first.
+# The full seven-way sweep was accurate but took 50 minutes over a catalogue
+# this size; these three give the same answers in about a fifth of the time.
 ATTEMPTS = (
     ((0.10, 0.00, 0.90, 0.40), 3, False, 6),
-    ((0.10, 0.00, 0.90, 0.40), 3, False, 11),
-    ((0.10, 0.00, 0.90, 0.40), 5, False, 6),
     ((0.10, 0.00, 0.90, 0.40), 2, True, 11),
-    ((0.10, 0.00, 0.90, 0.40), 4, True, 6),
-    ((0.20, 0.00, 0.80, 0.55), 4, True, 11),
-    ((0.10, 0.00, 0.90, 0.60), 6, True, 6),
+    ((0.10, 0.00, 0.90, 0.40), 5, False, 6),
 )
 
 
