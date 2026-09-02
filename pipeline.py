@@ -584,6 +584,10 @@ def cmd_score(args) -> int:
     products = site.products()
     print(f"{len(products)} products\n")
 
+    if getattr(args, "max_products", 0):
+        products = products[:args.max_products]
+        print(f"limited to {len(products)} products\n")
+
     hits, misses = [], 0
     for i, product in enumerate(products, start=1):
         name = product.get("name", "")
@@ -669,8 +673,10 @@ def build_parser() -> argparse.ArgumentParser:
     common(u)
 
     sc = sub.add_parser("score",
-                        help="Score every image against the wordmark, change nothing")
+                        help="Report which images carry the mark, change nothing")
     common(sc)
+    sc.add_argument("--max-products", type=int, default=0,
+                    help="Only look at this many products (0 = all)")
 
     b = sub.add_parser("build", help="Rebuild the dashboard from saved state")
     common(b)
