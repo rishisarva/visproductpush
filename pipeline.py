@@ -51,7 +51,7 @@ SKU_PREFIX = "TS-"
 # Bump this whenever the detection logic changes. Products checked under an
 # older version are looked at again automatically, so an improvement is never
 # hidden behind the memory of what was already inspected.
-DETECTOR_VERSION = 5
+DETECTOR_VERSION = 6
 
 KEEP_EDITS = 80          # how many recent edits the dashboard shows
 THUMB_WIDTH = 460
@@ -334,6 +334,53 @@ def cmd_revert(args) -> int:
     return 0
 
 
+def cmd_undo_last(args) -> int:
+    """
+    Put back the originals for every product the last run edited.
+
+    Unlike `revert`, this does not add them to the skip list: the point is to
+    undo a bad detector change, so they should be looked at again once the
+    detection is fixed.
+    """
+    site = Site(args)
+    state = load_state()
+
+    if not state["runs"]:
+        print("No runs recorded.")
+        return 0
+
+    last = state["runs"][-1]
+    targets = last.get("changed", [])
+    print(f"Last run was {last.get('at','?')}, it edited {len(targets)} products.")
+
+    if not targets:
+        return 0
+
+    done = failed = 0
+    for pid in targets:
+        rec = state["products"].get(str(pid))
+        if not rec or not rec.get("original_images"):
+            print(f"  ? {pid} has no stored originals")
+            continue
+        try:
+            site.set_images(int(pid), [{"id": i} for i in rec["original_images"]])
+            rec["cleaned_indexes"] = []
+            rec["edits"] = []
+            rec["reverted"] = now_iso()
+            state["checked"].pop(str(pid), None)   # let it be looked at again
+            done += 1
+            print(f"  restored {rec.get('name','')[:46]}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ! {pid}: {exc}")
+            failed += 1
+        time.sleep(args.delay)
+
+    save_state(state)
+    build_dashboard(state)
+    print(f"\nRestored {done} products, {failed} failed.")
+    return 1 if failed else 0
+
+
 def cmd_draft(args) -> int:
     """Take a product off the shop without deleting it."""
     site = Site(args)
@@ -580,6 +627,10 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--products", required=True,
                         help="Product ids, comma separated")
 
+    u = sub.add_parser("undo-last",
+                       help="Undo every edit the most recent run made")
+    common(u)
+
     b = sub.add_parser("build", help="Rebuild the dashboard from saved state")
     common(b)
 
@@ -589,7 +640,8 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     handlers = {"auto": cmd_auto, "revert": cmd_revert, "draft": cmd_draft,
-                "skip": cmd_skip, "unskip": cmd_unskip, "build": cmd_build}
+                "skip": cmd_skip, "unskip": cmd_unskip, "build": cmd_build,
+                "undo-last": cmd_undo_last}
     sys.exit(handlers[args.command](args))
 
 
