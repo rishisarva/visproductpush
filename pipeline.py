@@ -379,6 +379,49 @@ def cmd_undo_last(args) -> int:
     return 1 if failed else 0
 
 
+def cmd_restore_all(args) -> int:
+    """
+    Put every product back to its original supplier images.
+
+    Earlier runs edited images with detection logic that turned out to be
+    wrong, so the catalogue is a mix of well-cleaned, badly-cleaned and
+    untouched photos. Nothing can be judged against that. This resets
+    everything to the originals, which are still in the media library.
+    """
+    site = Site(args)
+    state = load_state()
+
+    targets = [(pid, rec) for pid, rec in state["products"].items()
+               if rec.get("original_images")]
+    print(f"{len(targets)} products have edited images to restore.")
+    if not targets:
+        return 0
+
+    done = failed = 0
+    for pid, rec in targets:
+        try:
+            site.set_images(int(pid), [{"id": i} for i in rec["original_images"]])
+            rec["cleaned_indexes"] = []
+            rec["edits"] = []
+            rec["restored"] = now_iso()
+            state["checked"].pop(str(pid), None)
+            done += 1
+            if done % 10 == 0:
+                print(f"  restored {done}/{len(targets)}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ! {pid}: {exc}", flush=True)
+            failed += 1
+        time.sleep(args.delay)
+
+    # a clean slate means everything should be looked at again
+    state["checked"] = {}
+    save_state(state)
+    build_dashboard(state)
+    print(f"\nRestored {done} products, {failed} failed.")
+    print("Every product will be examined again on the next run.")
+    return 1 if failed else 0
+
+
 def cmd_draft(args) -> int:
     """Take a product off the shop without deleting it."""
     site = Site(args)
@@ -722,6 +765,10 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Undo every edit the most recent run made")
     common(u)
 
+    ra = sub.add_parser("restore-all",
+                        help="Put every product back to its original images")
+    common(ra)
+
     sc = sub.add_parser("score",
                         help="Report which images carry the mark, change nothing")
     common(sc)
@@ -740,7 +787,8 @@ def main() -> None:
     args = build_parser().parse_args()
     handlers = {"auto": cmd_auto, "revert": cmd_revert, "draft": cmd_draft,
                 "skip": cmd_skip, "unskip": cmd_unskip, "build": cmd_build,
-                "undo-last": cmd_undo_last, "score": cmd_score}
+                "undo-last": cmd_undo_last, "score": cmd_score,
+                "restore-all": cmd_restore_all}
     sys.exit(handlers[args.command](args))
 
 
