@@ -39,7 +39,7 @@ try:
 except ImportError:
     sys.exit("Missing dependencies. Run:  pip install requests pillow")
 
-from brand_clean import find_clip, looks_like_logo, clean, crop_around, Site
+from brand_clean import clean, crop_around, Site
 from wordmark import find_wordmark
 
 
@@ -52,7 +52,7 @@ SKU_PREFIX = "TS-"
 # Bump this whenever the detection logic changes. Products checked under an
 # older version are looked at again automatically, so an improvement is never
 # hidden behind the memory of what was already inspected.
-DETECTOR_VERSION = 6
+DETECTOR_VERSION = 7
 
 KEEP_EDITS = 80          # how many recent edits the dashboard shows
 THUMB_WIDTH = 460
@@ -182,7 +182,7 @@ def cmd_auto(args) -> int:
 
             try:
                 img = site.download(src)
-                band, box, cm = find_clip(img)
+                hit = find_wordmark(img)
             except Exception as exc:  # noqa: BLE001
                 print(f"  ! read {name[:38]} image {idx}: {exc}")
                 run["errors"] += 1
@@ -190,20 +190,17 @@ def cmd_auto(args) -> int:
                     new_list.append({"id": media_id})
                 continue
 
-            ok = False
-            reason = "no clip found"
-            if box:
-                ok, reason = looks_like_logo(img, band, box, cm, args.strict)
-
-            if not ok:
-                why[reason.split("(")[0].strip()] += 1
+            if hit is None:
+                why["no wordmark read"] += 1
                 if getattr(args, "explain", False):
-                    print(f"  skip {name[:38]} image {idx}: {reason}")
+                    print(f"  skip {name[:38]} image {idx}: no wordmark read")
                 if media_id:
                     new_list.append({"id": media_id})
                 continue
 
-            print(f"  clean {name[:42]} image {idx}  [{reason}]")
+            box = hit.box
+            reason = f"read '{hit.text[:26]}' [{hit.how}]"
+            print(f"  clean {name[:42]} image {idx}  {reason}")
 
             if args.dry_run:
                 if media_id:
@@ -582,18 +579,12 @@ with the product id.</div>
 
 
 def cmd_score(args) -> int:
-    """
-    Score every image against the wordmark template and report.
-
-    Changes nothing. The point is to see, across the whole catalogue, where
-    branded and clean images actually fall so the threshold can be chosen
-    from data instead of guessed.
-    """
+    """Report which images carry the supplier mark. Changes nothing."""
     site = Site(args)
     products = site.products()
     print(f"{len(products)} products\n")
 
-    rows = []
+    hits, misses = [], 0
     for i, product in enumerate(products, start=1):
         name = product.get("name", "")
         for idx, image in enumerate(product.get("images", [])):
@@ -602,37 +593,27 @@ def cmd_score(args) -> int:
                 continue
             try:
                 img = site.download(src)
+                hit = find_wordmark(img)
             except Exception as exc:  # noqa: BLE001
                 print(f"  ! {name[:34]} image {idx}: {exc}")
                 continue
-
-            band, _, _ = find_clip(img)
-            if band:
+            if hit:
                 W, H = img.size
-                by0, by1 = band
-                pad = int((by1 - by0) * 1.2) + 4
-                crop = img.crop((0, max(0, by0 - pad), W, min(H, by1 + pad)))
-                score, _ = find_wordmark(crop, search_top=1.0)
+                hits.append((product["id"], name[:40], idx,
+                             hit.box[0] / W, hit.box[2] / W,
+                             hit.box[1] / H, hit.box[3] / H, hit.text[:26]))
             else:
-                score, _ = find_wordmark(img)
-
-            rows.append((score, f"{product['id']}", name[:40], idx))
+                misses += 1
             time.sleep(args.delay)
-
         if i % 20 == 0:
             print(f"  ...{i}/{len(products)}")
 
-    rows.sort(reverse=True)
-    print("\nWordmark match scores, highest first")
-    print(f"{'score':>7}  {'id':>7}  {'img':>3}  product")
-    print("-" * 74)
-    for score, pid, name, idx in rows:
-        print(f"{score:7.3f}  {pid:>7}  {idx:>3}  {name}")
-
-    print("-" * 74)
-    for cut in (0.20, 0.25, 0.30, 0.35, 0.40):
-        n = sum(1 for r in rows if r[0] >= cut)
-        print(f"  threshold {cut:.2f} -> {n} images would be treated as branded")
+    print(f"\nFound the mark on {len(hits)} images; {misses} had none.\n")
+    print(f"{'id':>7} {'img':>3}  where                      read as")
+    print("-" * 78)
+    for pid, name, idx, x0, x1, y0, y1, text in hits:
+        print(f"{pid:>7} {idx:>3}  x {x0:.2f}-{x1:.2f} y {y0:.2f}-{y1:.2f}  "
+              f"{text}  {name}")
     return 0
 
 
