@@ -2,7 +2,10 @@ name: Sync products
 
 on:
   schedule:
-    - cron: '0 */4 * * *'      # every 4 hours
+    # Minute 17 on purpose: scheduled jobs across all of GitHub pile up at the
+    # top of the hour, which is what causes delayed and dropped runs. Hours are
+    # listed explicitly so the schedule cannot drift.
+    - cron: '17 1,5,9,13,17,21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -25,10 +28,8 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-
-      # Prices, stock and sizes.
-      # Image cleanup is deliberately not here yet: it goes back in once the
-      # wordmark threshold is settled in the Images workflow.
+      # Prices, stock and sizes. Also reads the blocklist from Supabase, so a
+      # product removed in the app is deleted here and never created again.
       - name: Sync prices and stock
         continue-on-error: true
         env:
@@ -38,7 +39,12 @@ jobs:
           # lets the run report itself to the app, and read the blocklist
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -u visions_sync.py sync --attribute-name "sizes" --skip-sold-out
+        run: >
+          python -u visions_sync.py sync
+          --attribute-name "sizes"
+          --skip-sold-out
+          --workers 2
+          --read-pause 0.15
 
       - name: Save results
         run: |
