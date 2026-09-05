@@ -915,7 +915,7 @@ def cmd_sync(args) -> int:
     # instantly even on a phone the site's wall will not talk to.
     try:
         live = woo.list_products(SKU_PREFIX)
-        sync_cloud.snapshot_products(live)
+        sync_cloud.snapshot_products(live, supplier)
         sync_cloud.report_run(
             stats,
             supplier_products=len(supplier),
