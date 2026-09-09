@@ -61,7 +61,7 @@ WC_URL = "https://visionsjersey.com"
 WC_KEY = "ck_paste_your_key_here"
 WC_SECRET = "cs_paste_your_secret_here"
 
-MARGIN = 220.0            # added to every supplier price: 440 -> 610
+MARGIN = 250.0            # added to every supplier price: 440 -> 610
 
 # ------------------------------------------------------------------ #
 #  Below here you can leave alone.                                    #
