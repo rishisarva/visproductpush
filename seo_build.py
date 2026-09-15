@@ -92,6 +92,23 @@ def esc(s):
     return html.escape(str(s or ""), quote=True)
 
 
+def size_names(raw):
+    """sizes arrives as a list of dicts from the feed — {size, in_stock, ...} —
+    not plain strings. Pull the label out whatever the key is called, and skip
+    any marked out of stock so the page never advertises a size you can't ship."""
+    out = []
+    for item in raw or []:
+        if isinstance(item, dict):
+            if item.get("in_stock") is False or item.get("stock") == 0:
+                continue
+            label = item.get("size") or item.get("name") or item.get("label") or item.get("value")
+            if label:
+                out.append(str(label))
+        elif item:
+            out.append(str(item))
+    return out
+
+
 def fetch_products():
     r = requests.get(FEED, timeout=60)
     r.raise_for_status()
@@ -110,7 +127,7 @@ def fetch_products():
             "price": p.get("price"),
             "mrp": p.get("mrp"),
             "images": [i for i in imgs if i][:4],
-            "sizes": [s for s in (p.get("sizes") or []) if s],
+            "sizes": size_names(p.get("sizes")),
             "in_stock": bool(p.get("in_stock", True)),
         })
     return out
