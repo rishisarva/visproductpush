@@ -46,6 +46,18 @@ jobs:
           --workers 2
           --read-pause 0.15
 
+      # Photos for anything the sync just added or changed are copied into the
+      # product-images bucket as pre-sized WebP, so the storefront serves them
+      # from Supabase's CDN instead of resizing through a proxy on every visit.
+      # Finishes in seconds when nothing changed. continue-on-error keeps a
+      # photo hiccup from ever blocking the stock sync or the commit below.
+      - name: Mirror product photos
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -u image_cdn.py
+
       - name: Save results
         run: |
           git config user.name  "sync bot"
