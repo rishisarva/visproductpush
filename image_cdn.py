@@ -49,6 +49,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import time
 
@@ -60,9 +61,9 @@ KEY = os.environ.get("SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_KEY", "
 BUCKET = "product-images"
 PREFIX = "cdn"
 
-# 840 covers the product hero (420 CSS px at 2x); 420 covers grid cards.
-SIZES = {"lg": 840, "sm": 420}
-QUALITY = 82
+# 1080 covers the product hero on desktop; 480 covers grid cards at 2x.
+SIZES = {"lg": 1080, "sm": 480}
+QUALITY = 86
 MAX_IMAGES = 4          # per product, when not --first-only
 
 FIRST_ONLY = "--first-only" in sys.argv
@@ -131,6 +132,34 @@ def remove(paths):
                  json={"prefixes": paths[i:i + 100]}, timeout=30)
 
 
+def full_size(u):
+    """WordPress appends -WxH to resized copies (photo-300x300.jpg). Strip it so
+    we always start from the original, never from a preview."""
+    if not u:
+        return u
+    return re.sub(r"-\d{2,4}x\d{2,4}(?=\.(?:jpe?g|png|webp)(?:\?|$))", "", str(u), flags=re.I)
+
+
+def fetch_photo(src):
+    """WordPress sits behind a bot wall that blocks GitHub's servers outright, so
+    a direct download fails for almost every supplier photo. images.weserv.nl
+    is a proxy the storefront already uses for every image, so it is known to
+    get through. Try direct first (works for anything already on Supabase),
+    then fall back to the proxy for the rest."""
+    try:
+        r = S.get(src, timeout=45)
+        if r.ok and r.content and r.headers.get("content-type", "").startswith("image"):
+            return r.content
+    except Exception:
+        pass
+    clean = src.replace("https://", "").replace("http://", "")
+    r = S.get("https://images.weserv.nl/", params={"url": clean}, timeout=60)
+    r.raise_for_status()
+    if not r.headers.get("content-type", "").startswith("image"):
+        raise RuntimeError("proxy returned " + r.headers.get("content-type", "?"))
+    return r.content
+
+
 def convert(raw, width):
     im = Image.open(io.BytesIO(raw))
     if im.mode in ("RGBA", "LA", "P"):
@@ -161,8 +190,19 @@ def main():
         if not pid:
             continue
 
+        # Index-aligned with the storefront gallery, which reads p.images from 0.
+        # `thumb` is deliberately NOT included: on supplier products it is a
+        # small WordPress thumbnail, and putting it at index 0 meant the product
+        # page was showing that tiny file upscaled. The grid card uses index 0
+        # of images too, which is the same photo at full size.
+        # Index by `images` and nothing else — that is what the storefront gallery
+        # indexes by, so slot 0 here must be slot 0 there. `thumb` is only a
+        # fallback for a product with no images at all: for supplier products it
+        # is WordPress's small preview, and putting it in slot 0 is what produced
+        # a blurry first photo with the real one duplicated in slot 1.
         urls, seen = [], set()
-        for u in [p.get("thumb")] + list(p.get("images") or []):
+        for u in list(p.get("images") or []) or [p.get("thumb")]:
+            u = full_size(u)
             if u and u not in seen:
                 seen.add(u)
                 urls.append(u)
@@ -179,7 +219,7 @@ def main():
                 skipped += 1
                 continue
             try:
-                raw = S.get(src, timeout=45).content
+                raw = fetch_photo(src)
                 for k, w in SIZES.items():
                     upload(names[k], convert(raw, w))
                 entry[str(idx)] = h
@@ -187,7 +227,7 @@ def main():
                 print(f"  new   {pid}-{idx}  {p.get('name', '')[:44]}")
             except Exception as e:
                 failed += 1
-                print(f"  FAIL  {pid}-{idx}  {type(e).__name__}: {e}")
+                print(f"  FAIL  {pid}-{idx}  {type(e).__name__}: {str(e)[:90]}  <- {src[:70]}")
             time.sleep(0.05)
 
         if entry:
