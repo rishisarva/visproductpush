@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.4 (27 Sep 2026) · runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.6 (27 Sep 2026) · on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -126,6 +126,19 @@ def full_size(u):
 
 
 def fetch_photo(url):
+    """Up to 3 tries: the free image proxy refuses when it's asked too fast."""
+    last = None
+    for wait in (0, 4, 12):
+        if wait:
+            time.sleep(wait)
+        try:
+            return fetch_photo_once(url)
+        except Exception as e:
+            last = e
+    raise last
+
+
+def fetch_photo_once(url):
     """Direct first; if WordPress's bot wall answers instead of the photo (it blocks
     GitHub's servers), go through images.weserv.nl — the same fallback image_cdn.py uses."""
     try:
@@ -211,11 +224,11 @@ def build(token):
                 make_webp(raw, w, q, os.path.join(PHOTOS, names[s_]))
             return True, job, ''
         except Exception as e:
-            return False, job, type(e).__name__
+            return False, job, type(e).__name__ + (f' {e.code}' if hasattr(e, 'code') else '')
 
     failed_ids = set()
     done = 0
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    with ThreadPoolExecutor(max_workers=2 if CI else 6) as pool:   # GitHub goes through the proxy: be gentle
         for ok, job, err in pool.map(work, todo):
             done += 1
             if not ok:
@@ -318,7 +331,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.4' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.6' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
@@ -331,7 +344,8 @@ def main():
     if build(token) == 0:
         sys.exit('No photos were made — send Claude a screenshot of this window.')
     if '--no-upload' not in sys.argv:
-        deploy()
+        if not deploy() and CI:
+            sys.exit('UPLOAD TO CLOUDFLARE FAILED — the shop is still showing the previous photos. Send Claude the lines above.')
 
 
 if __name__ == '__main__':
