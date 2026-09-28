@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.6 (27 Sep 2026) · on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.8 (28 Sep 2026) · also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -21,7 +21,7 @@ Run by hand:            <python> vj_images.py
 Turn on automatic mode: <python> vj_images.py --install-auto   (runs every 30 min while the Mac is on)
 Turn it off:            <python> vj_images.py --remove-auto
 """
-import getpass, hashlib, io, json, os, re, shutil, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
+import csv, getpass, hashlib, io, json, os, re, shutil, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
 SUPA = os.environ.get('VJ_SUPA', 'https://amgiihalfdhogzjrxinu.supabase.co')
@@ -30,6 +30,7 @@ ANON = os.environ.get('VJ_ANON', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 SERVICE = os.environ.get('VJ_SERVICE_KEY', '')   # the repo's existing SUPABASE_KEY secret (GitHub only)
 APIKEY = SERVICE or ANON
 PROJECT = os.environ.get('VJ_PROJECT', 'vj-images')
+PUBLIC = os.environ.get('VJ_PUBLIC', f'https://{PROJECT}.pages.dev')   # where the photos are served from
 HOME = os.path.expanduser(os.environ.get('VJ_HOME', '~/vj-images'))
 SITE, CACHE = os.path.join(HOME, 'site'), os.path.join(HOME, 'cache')
 SESSION = os.path.join(HOME, 'session.json')      # remembered dashboard sign-in (this Mac only)
@@ -40,7 +41,8 @@ AUTO = '--auto' in sys.argv or '--ci' in sys.argv
 CI = '--ci' in sys.argv          # GitHub Actions: login comes from the VJ_EMAIL / VJ_PASSWORD secrets
 PHOTOS = os.path.join(SITE, 'p')
 # Card = 840 px wide (420 shown at 2x), product page = 1600 px wide.
-SIZES = {'sm': (840, 80), 'lg': (1600, 82)}
+SIZES = {'sm': (840, 80), 'lg': (1600, 82), 'mt': (1080, 85)}   # mt = JPEG for the Meta catalogue
+EXT = lambda size: 'jpg' if size == 'mt' else 'webp'
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh) VisionsJerseyPhotoBuilder/1'}
 
 
@@ -171,7 +173,7 @@ def cached_download(url):
     return data
 
 
-def make_webp(raw, width, quality, dest):
+def make_webp(raw, width, quality, dest, fmt='WEBP'):
     from PIL import Image
     im = Image.open(io.BytesIO(raw))
     im.load()
@@ -185,12 +187,21 @@ def make_webp(raw, width, quality, dest):
     if im.width > width:
         im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
     tmp = dest + '.tmp'
-    im.save(tmp, 'WEBP', quality=quality, method=4)
+    if fmt == 'JPEG':
+        im.save(tmp, 'JPEG', quality=quality, optimize=True, progressive=True)
+    else:
+        im.save(tmp, 'WEBP', quality=quality, method=4)
     os.replace(tmp, dest)
 
 
 def build(token):
-    feed = json.loads(get(f'{SUPA}/storage/v1/object/public/feeds/shop-products.json'))
+    feed_raw = get(f'{SUPA}/storage/v1/object/public/feeds/shop-products.json')
+    feed = json.loads(feed_raw)
+    # v1.7: publish an exact copy of the product list on Cloudflare too. The
+    # shop and /join read it from there first (Supabase only as a fallback).
+    os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
+    with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
+        f.write(feed_raw)
     say(f'Products in the shop: {len(feed)}')
     rows = json.loads(get(f'{SUPA}/rest/v1/vj_shots?select=product_id,shots',
                           {'apikey': APIKEY, 'Authorization': f'Bearer {token}'}))
@@ -210,7 +221,7 @@ def build(token):
             edited_url = mine.get(str(idx))
             src = edited_url or full_size(supplier_url)          # EDITED ALWAYS WINS
             h = hashlib.sha1(src.encode()).hexdigest()[:12]      # new photo -> new name, never stale
-            names = {s_: f'{pid}-{idx}-{h}-{s_}.webp' for s_ in SIZES}
+            names = {s_: f'{pid}-{idx}-{h}-{s_}.{EXT(s_)}' for s_ in SIZES}
             jobs.append((pid, idx, h, src, names, p.get('name', pid), bool(edited_url)))
 
     todo = [j_ for j_ in jobs if not all(os.path.exists(os.path.join(PHOTOS, n)) for n in j_[4].values())]
@@ -221,7 +232,7 @@ def build(token):
         try:
             raw = cached_download(src)
             for s_, (w, q) in SIZES.items():
-                make_webp(raw, w, q, os.path.join(PHOTOS, names[s_]))
+                make_webp(raw, w, q, os.path.join(PHOTOS, names[s_]), 'JPEG' if s_ == 'mt' else 'WEBP')
             return True, job, ''
         except Exception as e:
             return False, job, type(e).__name__ + (f' {e.code}' if hasattr(e, 'code') else '')
@@ -249,14 +260,16 @@ def build(token):
 
     # Remove photos that no longer belong to any product (keeps the site small and tidy).
     for f in os.listdir(PHOTOS):
-        if f.endswith('.webp') and f not in keep:
+        if (f.endswith('.webp') or f.endswith('-mt.jpg')) and f not in keep:
             os.remove(os.path.join(PHOTOS, f))
 
     with open(os.path.join(SITE, 'map.json'), 'w') as f:
         json.dump(photo_map, f, separators=(',', ':'))
+    meta_catalogue(feed, photo_map)
     with open(os.path.join(SITE, '_headers'), 'w') as f:
         f.write('/p/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'
-                '/map.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n')
+                '/map.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n'
+                '/feeds/*\n  Cache-Control: public, max-age=120\n  Access-Control-Allow-Origin: *\n')
     with open(os.path.join(SITE, 'index.html'), 'w') as f:
         f.write('<!doctype html><title>Visions Jersey photos</title><p>Photo files for shop.visionsjersey.com</p>')
     total = sum(len(v) for v in photo_map.values())
@@ -264,9 +277,58 @@ def build(token):
     return total
 
 
+def meta_catalogue(feed, photo_map):
+    """v1.8: a copy of the Meta catalogue file where every photo link that we
+    have on Cloudflare points to Cloudflare (a JPEG, your edited photo if you
+    made one) instead of a full-size original on Supabase or WordPress.
+    Links we can't match are left exactly as they were."""
+    try:
+        raw = get(f'{SUPA}/storage/v1/object/public/feeds/meta-products.csv')
+    except Exception as e:  # no catalogue file: nothing to do
+        say(f'  (Meta catalogue not copied: {type(e).__name__})')
+        return
+    by_url = {}
+    for p in feed:
+        pid = str(p.get('id', ''))
+        for idx, u in enumerate([u for u in (p.get('images') or []) if u]):
+            by_url.setdefault(u, (pid, idx)); by_url.setdefault(full_size(u), (pid, idx))
+    swapped = total = 0
+    def swap(u):
+        nonlocal swapped, total
+        u = u.strip()
+        if not u:
+            return u
+        total += 1
+        k = by_url.get(u) or by_url.get(full_size(u))
+        h = photo_map.get(k[0], {}).get(str(k[1])) if k else None
+        if not h:
+            return u
+        swapped += 1
+        return f'{PUBLIC}/p/{k[0]}-{k[1]}-{h}-mt.jpg'
+    text = raw.decode('utf-8-sig')
+    rows = list(csv.reader(io.StringIO(text)))
+    if not rows:
+        return
+    head = rows[0]
+    cols = [i for i, c in enumerate(head) if c in ('image_link', 'additional_image_link')]
+    for r in rows[1:]:
+        for i in cols:
+            if i < len(r):
+                r[i] = ','.join(swap(u) for u in r[i].split(',') if u.strip())
+    os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
+    out = io.StringIO(); csv.writer(out, lineterminator='\n').writerows(rows)
+    with open(os.path.join(SITE, 'feeds', 'meta-products.csv'), 'w', encoding='utf-8') as f:
+        f.write(out.getvalue())
+    say(f'Meta catalogue: {swapped} of {total} photo links now point to Cloudflare')
+
+
 def fingerprint():
     files = sorted(os.listdir(PHOTOS))
-    return hashlib.sha1((open(os.path.join(SITE, 'map.json')).read() + '|'.join(files)).encode()).hexdigest()
+    feed = b''
+    for name in ('shop-products.json', 'meta-products.csv'):
+        fp = os.path.join(SITE, 'feeds', name)
+        feed += open(fp, 'rb').read() if os.path.exists(fp) else b''
+    return hashlib.sha1((open(os.path.join(SITE, 'map.json')).read() + '|'.join(files)).encode() + feed).hexdigest()
 
 
 def deploy():
@@ -331,7 +393,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.6' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.8' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
