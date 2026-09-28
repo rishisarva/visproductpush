@@ -202,10 +202,11 @@ def clean_msretro_title(title: str) -> str:
     """MS Retro titles carry their own codes: 'Neymar Brazil ... jersey - P2147',
     '... full sleeve P72 - ms retro'. Remove the codes and the shop name."""
     t = re.sub(r"\bms\s*retro\b", " ", title or "", flags=re.I)
+    t = re.sub(r"\bstore\b", " ", t, flags=re.I)             # "- ms retro store" leftovers
     t = re.sub(r"\bP\s?\d{2,5}\b", " ", t, flags=re.I)
     t = re.sub(r"(\s*[-\u2013|:]\s*)+(?=\s*[-\u2013|:]|\s*$)", " ", t)   # dashes left dangling
     t = re.sub(r"\s{2,}", " ", t).strip(" -\u2013|:")
-    return t or (title or "").strip()
+    return (t or (title or "").strip()).upper()             # capitals, like the rest of the shop
 
 
 def apply_msretro_prices(products: list, margin: float, round_to: int, overrides: dict) -> None:
@@ -715,6 +716,9 @@ class Syncer:
 
         if self.args.sync_titles and existing.get("name") != product.name:
             parent_changes["name"] = product.name
+        elif (self.review_mode and getattr(self.args, "price_table", "") and existing.get("status") == "publish"
+              and existing.get("name") != product.name):
+            parent_changes["name"] = product.name       # live MS Retro product: clean capital title
 
         if not product.option_name:
             # simple product
