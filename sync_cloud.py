@@ -96,7 +96,7 @@ def report_run(stats, *, supplier_products: int, site_products: int,
           extra_headers={"Prefer": "return=minimal"})
 
 
-def snapshot_products(products: list[dict], supplier=None) -> None:
+def snapshot_products(products: list[dict], supplier=None, prefix: str = "") -> None:
     """
     Mirror the live catalogue so the app's grid loads instantly, and still
     works on a phone the site's wall refuses to talk to.
@@ -156,7 +156,9 @@ def snapshot_products(products: list[dict], supplier=None) -> None:
 
     # drop rows for products that no longer exist on the site
     live = {r["sku"] for r in rows}
-    gone = [sku for sku in seen_before if sku not in live]
+    # Only clear rows with this run's own label, so two suppliers never wipe
+    # each other's products from the app.
+    gone = [sku for sku in seen_before if sku not in live and sku.startswith(prefix)]
     for sku in gone:
         _call("DELETE", f"sync_products?sku=eq.{sku}",
               extra_headers={"Prefer": "return=minimal"})
@@ -167,3 +169,70 @@ def _num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+# ──────────────────────────────────────────────────────────────
+# Review list (MS Retro and other suppliers run with --review)
+#   Table vj_review: one row per product waiting in the dashboard's
+#   Photos → Review tab.  status: pending | approved | live | rejected | gone
+# ──────────────────────────────────────────────────────────────
+
+def review_rows() -> dict:
+    """sku -> row, for the products of every review-mode supplier."""
+    rows = _call("GET", "vj_review?select=sku,status,product_id") or []
+    return {r["sku"]: r for r in rows if r.get("sku")}
+
+
+def review_add(product, product_id, supplier_url: str = "") -> None:
+    """A new hidden product: put it on the Review list. An existing row is
+    never overwritten (so an approval or rejection is never undone)."""
+    if not ENABLED:
+        return
+    handle = product.sku.split("-", 1)[1] if "-" in product.sku else product.sku
+    try:
+        price = min(v.price for v in product.variants) if product.variants else None
+    except Exception:  # noqa: BLE001
+        price = None
+    row = {
+        "sku": product.sku,
+        "product_id": str(product_id),
+        "name": (product.name or "")[:200],
+        "supplier_url": f"{supplier_url.rstrip('/')}/products/{handle}" if supplier_url else "",
+        "supplier_images": (product.images or [])[:10],
+        "price": price,
+        "price_auto": getattr(product, "price_auto", "") or "",
+        "price_note": getattr(product, "price_note", "") or "",
+        "status": "pending",
+    }
+    _call("POST", "vj_review?on_conflict=sku", json=[row],
+          extra_headers={"Prefer": "resolution=ignore-duplicates,return=minimal"})
+
+
+def price_overrides() -> dict:
+    """sku -> jersey type you picked in the Review tab, e.g. 'HS|CN|EMB'."""
+    rows = _call("GET", "vj_review?select=sku,price_type") or []
+    return {r["sku"]: r["price_type"] for r in rows if r.get("sku") and r.get("price_type")}
+
+
+def review_mark(sku: str, status: str) -> None:
+    if not ENABLED or not sku:
+        return
+    from datetime import datetime, timezone
+    _call("PATCH", f"vj_review?sku=eq.{sku}",
+          json={"status": status, "updated_at": datetime.now(timezone.utc).isoformat()},
+          extra_headers={"Prefer": "return=minimal"})
+
+
+def edited_images(product_id) -> list:
+    """Your edited photos for a product (dashboard Photos tab), in slot order,
+    skipping slots you removed. Used as the product's photos when it goes live."""
+    rows = _call("GET", f"vj_shots?product_id=eq.{product_id}&select=shots,removed") or []
+    if not rows:
+        return []
+    shots = rows[0].get("shots") or {}
+    removed = {int(x) for x in (rows[0].get("removed") or []) if str(x).lstrip("-").isdigit()}
+    out = []
+    for k in sorted(shots, key=lambda x: int(x) if str(x).isdigit() else 999):
+        if str(k).isdigit() and int(k) not in removed and shots[k]:
+            out.append(shots[k])
+    return out
