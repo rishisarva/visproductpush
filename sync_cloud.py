@@ -177,6 +177,17 @@ def _num(v):
 #   Photos → Review tab.  status: pending | approved | live | rejected | gone
 # ──────────────────────────────────────────────────────────────
 
+def forget_products(prefix: str) -> int:
+    """Remove one supplier's products (by SKU label) from the app's product list."""
+    if not ENABLED or not prefix or len(prefix) < 2:
+        return 0
+    rows = _call("GET", "sync_products?select=sku") or []
+    gone = [r["sku"] for r in rows if (r.get("sku") or "").startswith(prefix)]
+    for sku in gone:
+        _call("DELETE", f"sync_products?sku=eq.{sku}", extra_headers={"Prefer": "return=minimal"})
+    return len(gone)
+
+
 def review_rows() -> dict:
     """sku -> row, for the products of every review-mode supplier."""
     rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note") or []
