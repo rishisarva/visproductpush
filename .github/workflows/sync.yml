@@ -18,7 +18,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 90          # two suppliers now (Thayyil + MS Retro)
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +41,36 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: >
           python -u visions_sync.py sync
+          --attribute-name "sizes"
+          --skip-sold-out
+          --workers 2
+          --read-pause 0.15
+
+      # MS Retro. Its products have their own label (MS-), so this step can
+      # never touch the Thayyil products above. New products are created
+      # HIDDEN and wait in the dashboard's Photos -> Review tab; they only go
+      # live after you approve them, with your photos, never MS Retro's.
+      # Price = MS Retro's wholesale list price for the jersey type (read from
+      # the title: half/five/full sleeve, round/collar neck, sublimation/
+      # embroidery) + the 250 margin; their website price is not used.
+      # At most 40 new products per run, so the first import spreads over a
+      # few runs and never runs out of time.
+      - name: MS Retro (new products wait for your approval)
+        continue-on-error: true
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: >
+          python -u visions_sync.py sync
+          --supplier "https://msretro.com"
+          --collection ""
+          --prefix "MS-"
+          --review
+          --price-table msretro
+          --max-new 40
           --attribute-name "sizes"
           --skip-sold-out
           --workers 2
