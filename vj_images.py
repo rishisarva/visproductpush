@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.8 (28 Sep 2026) · also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.9 (29 Sep 2026) · adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -21,7 +21,7 @@ Run by hand:            <python> vj_images.py
 Turn on automatic mode: <python> vj_images.py --install-auto   (runs every 30 min while the Mac is on)
 Turn it off:            <python> vj_images.py --remove-auto
 """
-import csv, getpass, hashlib, io, json, os, re, shutil, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
+import csv, getpass, html as _html, hashlib, io, json, os, re, shutil, subprocess, sys, time, urllib.parse, urllib.request, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
 SUPA = os.environ.get('VJ_SUPA', 'https://amgiihalfdhogzjrxinu.supabase.co')
@@ -31,6 +31,7 @@ SERVICE = os.environ.get('VJ_SERVICE_KEY', '')   # the repo's existing SUPABASE_
 APIKEY = SERVICE or ANON
 PROJECT = os.environ.get('VJ_PROJECT', 'vj-images')
 PUBLIC = os.environ.get('VJ_PUBLIC', f'https://{PROJECT}.pages.dev')   # where the photos are served from
+MS_STORE = os.environ.get('VJ_MS_STORE', 'https://msretro.com')          # for product details
 HOME = os.path.expanduser(os.environ.get('VJ_HOME', '~/vj-images'))
 SITE, CACHE = os.path.join(HOME, 'site'), os.path.join(HOME, 'cache')
 SESSION = os.path.join(HOME, 'session.json')      # remembered dashboard sign-in (this Mac only)
@@ -194,14 +195,69 @@ def make_webp(raw, width, quality, dest, fmt='WEBP'):
     os.replace(tmp, dest)
 
 
+_DETAIL_SKIP = re.compile(r'ms\s*retro|whats\s*app|https?:|www\.|\d{10}|size\s*chart|instagram|\bcall\b|contact|\bcod\b|cash on|order now|dm\b', re.I)
+
+
+def detail_lines(body):
+    '''MS Retro description -> short clean lines ("Round neck", "Embroidery logo" ...).'''
+    t = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', body or '', flags=re.S | re.I)
+    t = re.sub(r'<br\s*/?>|</(p|li|div|h\d|tr)>', '\n', t, flags=re.I)
+    t = _html.unescape(re.sub(r'<[^>]+>', ' ', t))
+    out, seen = [], set()
+    for line in t.split('\n'):
+        line = re.sub(r'\s+', ' ', line).strip(' \u2022-\u2013\u00b7*:')
+        if not line or len(line) > 160 or _DETAIL_SKIP.search(line) or line.lower() in seen:
+            continue
+        seen.add(line.lower())
+        out.append(line[0].upper() + line[1:])
+    return out[:10]
+
+
+def ms_details(token):
+    '''{shop product id: [detail lines]} for MS Retro products (label MS-).'''
+    try:
+        rows = json.loads(get(f'{SUPA}/rest/v1/vj_review?select=sku,product_id',
+                              {'apikey': APIKEY, 'Authorization': f'Bearer {token}'}))
+        by_handle = {r['sku'][3:]: str(r['product_id']) for r in rows
+                     if (r.get('sku') or '').startswith('MS-') and r.get('product_id')}
+        if not by_handle:
+            return {}
+        out = {}
+        for page in range(1, 9):
+            batch = json.loads(get(f'{MS_STORE}/products.json?limit=250&page={page}')).get('products', [])
+            for prod in batch:
+                pid = by_handle.get(prod.get('handle', ''))
+                lines = detail_lines(prod.get('body_html', '')) if pid else []
+                if lines:
+                    out[pid] = lines
+            if len(batch) < 250:
+                break
+        return out
+    except Exception as e:   # details are a nice-to-have: never block photos
+        say(f'  (product details skipped: {type(e).__name__})')
+        return {}
+
+
 def build(token):
     feed_raw = get(f'{SUPA}/storage/v1/object/public/feeds/shop-products.json')
     feed = json.loads(feed_raw)
-    # v1.7: publish an exact copy of the product list on Cloudflare too. The
-    # shop and /join read it from there first (Supabase only as a fallback).
+    # v1.7: publish a copy of the product list on Cloudflare too. The shop and
+    # /join read it from there first (Supabase only as a fallback).
+    # v1.9: MS Retro products get a "details" list (from their description),
+    # shown above the sizes on the product page. Everything else is unchanged.
+    details = ms_details(token)
     os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
     with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
-        f.write(feed_raw)
+        if details:
+            copy = json.loads(feed_raw)
+            for p in copy:
+                d = details.get(str(p.get('id', '')))
+                if d:
+                    p['details'] = d
+            f.write(json.dumps(copy, ensure_ascii=False, separators=(',', ':')).encode())
+            say(f'Product details added for {sum(1 for p in copy if p.get("details"))} MS Retro product(s)')
+        else:
+            f.write(feed_raw)
     say(f'Products in the shop: {len(feed)}')
     rows = json.loads(get(f'{SUPA}/rest/v1/vj_shots?select=product_id,shots',
                           {'apikey': APIKEY, 'Authorization': f'Bearer {token}'}))
@@ -393,7 +449,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.8' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.9' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
