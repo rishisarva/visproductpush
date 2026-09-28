@@ -5,7 +5,8 @@ on:
     # Minute 17 on purpose: scheduled jobs across all of GitHub pile up at the
     # top of the hour, which is what causes delayed and dropped runs. Hours are
     # listed explicitly so the schedule cannot drift.
-    - cron: '17 1,5,9,13,17,21 * * *'
+    # v3: every hour (was every 4 hours), so stock and sizes are at most ~1 hour old
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -28,23 +29,19 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # Prices, stock and sizes. Also reads the blocklist from Supabase, so a
-      # product removed in the app is deleted here and never created again.
-      - name: Sync prices and stock
+      # Thayyil Sports is switched off (29 Sep 2026). This step only HIDES its
+      # products (label TS-); nothing is deleted, so old orders keep their
+      # links. It runs every time so they stay hidden, touches no other
+      # products, and finishes in seconds when there is nothing to do.
+      - name: Thayyil switched off (keep its products hidden)
         continue-on-error: true
         env:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
-          # lets the run report itself to the app, and read the blocklist
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: >
-          python -u visions_sync.py sync
-          --attribute-name "sizes"
-          --skip-sold-out
-          --workers 2
-          --read-pause 0.15
+        run: python -u visions_sync.py hide-all --prefix "TS-"
 
       # MS Retro. Its products have their own label (MS-), so this step can
       # never touch the Thayyil products above. New products are created
@@ -53,8 +50,8 @@ jobs:
       # Price = MS Retro's wholesale list price for the jersey type (read from
       # the title: half/five/full sleeve, round/collar neck, sublimation/
       # embroidery) + the 250 margin; their website price is not used.
-      # At most 40 new products per run, so the first import spreads over a
-      # few runs and never runs out of time.
+      # At most 150 new products per run (the first import finishes in about
+      # 3 runs); stock and sizes of EVERY existing product update every run.
       - name: MS Retro (new products wait for your approval)
         continue-on-error: true
         env:
@@ -70,7 +67,7 @@ jobs:
           --prefix "MS-"
           --review
           --price-table msretro
-          --max-new 40
+          --max-new 150
           --attribute-name "sizes"
           --skip-sold-out
           --workers 2
