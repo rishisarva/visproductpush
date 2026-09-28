@@ -1195,6 +1195,41 @@ def cmd_first_run(args) -> int:
 # CLI
 # ==========================================================================
 
+def cmd_hide_all(args) -> int:
+    """Switch a supplier off: hide (draft) every product with its SKU label.
+    Nothing is deleted, so old orders keep their links. Safe to run on every
+    sync — products already hidden are left alone. Also removes that
+    supplier's products from the app's product list."""
+    if not SKU_PREFIX or len(SKU_PREFIX) < 2:
+        log.error("Refusing to hide without a supplier label (e.g. --prefix TS-)")
+        return 1
+    require_keys(args)
+    woo = Woo(args.wc_url, args.wc_key, args.wc_secret)
+    mine = woo.list_products(SKU_PREFIX)
+    live = [p for p in mine if p.get("status") == "publish"]
+    log.info("%d product(s) with label %s, %d still visible", len(mine), SKU_PREFIX, len(live))
+    hidden = 0
+    for p in live:
+        if args.dry_run:
+            log.info("WOULD HIDE  %s", (p.get("name") or "")[:50]); continue
+        try:
+            woo.call("PUT", f"/products/{p['id']}", json={"status": "draft"})
+            hidden += 1
+            log.info("HIDDEN  %s", (p.get("name") or "")[:50])
+        except Exception as exc:  # noqa: BLE001
+            log.error("Could not hide #%s: %s", p.get("id"), exc)
+        time.sleep(0.3)
+    if not args.dry_run:
+        try:
+            n = sync_cloud.forget_products(SKU_PREFIX)                  # drop them from the app's list
+            if n:
+                log.info("Removed %d %s product(s) from the app's list", n, SKU_PREFIX)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not update the app's list: %s", exc)
+    log.info("Done — hidden now: %d, all %d %s products are hidden", hidden, len(mine), SKU_PREFIX)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1268,6 +1303,9 @@ def build_parser() -> argparse.ArgumentParser:
     sync_flags(f)
     f.add_argument("--yes", action="store_true", help="Skip the confirmation prompt")
 
+    hd = sub.add_parser("hide-all", help="Switch a supplier off: hide every product with --prefix (nothing deleted)")
+    common(hd)
+
     w = sub.add_parser("wipe", help="Delete products")
     common(w)
     w.add_argument("--all", action="store_true",
@@ -1284,7 +1322,7 @@ def main() -> None:
     global SKU_PREFIX
     SKU_PREFIX = getattr(args, "prefix", SKU_PREFIX) or SKU_PREFIX
 
-    handlers = {"test": cmd_test, "sync": cmd_sync,
+    handlers = {"test": cmd_test, "sync": cmd_sync, "hide-all": cmd_hide_all,
                 "first-run": cmd_first_run, "wipe": cmd_wipe}
     sys.exit(handlers[args.command](args))
 
