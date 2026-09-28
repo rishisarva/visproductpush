@@ -187,6 +187,16 @@ def detect_type(title: str, tags: str = ""):
     return tuple(out), guessed
 
 
+def clean_msretro_title(title: str) -> str:
+    """MS Retro titles carry their own codes: 'Neymar Brazil ... jersey - P2147',
+    '... full sleeve P72 - ms retro'. Remove the codes and the shop name."""
+    t = re.sub(r"\bms\s*retro\b", " ", title or "", flags=re.I)
+    t = re.sub(r"\bP\s?\d{2,5}\b", " ", t, flags=re.I)
+    t = re.sub(r"(\s*[-\u2013|:]\s*)+(?=\s*[-\u2013|:]|\s*$)", " ", t)   # dashes left dangling
+    t = re.sub(r"\s{2,}", " ", t).strip(" -\u2013|:")
+    return t or (title or "").strip()
+
+
 def apply_msretro_prices(products: list, margin: float, round_to: int, overrides: dict) -> None:
     """Replace every variant's price with (list price for its type) + margin."""
     for p in products:
@@ -677,6 +687,8 @@ class Syncer:
                     imgs = sync_cloud.edited_images(pid)
                     if imgs:
                         parent_changes["images"] = [{"src": u} for u in imgs]
+                    if existing.get("name") != product.name:     # the clean title
+                        parent_changes["name"] = product.name
                 parent_changes["status"] = "publish"
                 self._went_live.append(product.sku)
                 self.stats.relisted += 1
@@ -1017,6 +1029,8 @@ def cmd_sync(args) -> int:
 
     if getattr(args, "price_table", "") == "msretro":
         apply_msretro_prices(supplier, args.margin, args.round_to, sync_cloud.price_overrides())
+        for p in supplier:                       # clean titles AFTER the type was read from them
+            p.name = clean_msretro_title(p.name)
         unknown = [p for p in supplier if not p.price_type]
         log.info("MS Retro price list applied (+%s margin); %d product(s) need their type picked "
                  "in the dashboard", money(args.margin), len(unknown))
