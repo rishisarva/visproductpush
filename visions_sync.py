@@ -169,22 +169,33 @@ def _clean(text: str) -> str:
     return " " + re.sub(r"[^a-z0-9/]+", " ", (text or "").lower()) + " "
 
 
-def detect_type(title: str, tags: str = ""):
-    """(sleeve, neck, print) and the parts that had to be assumed.
+def detect_type(title: str, details: str = ""):
+    """(sleeve, neck, print) + notes. Two checks:
+      1. the TITLE decides when it says something;
+      2. the DETAILS (MS Retro's tags + description) are always read too:
+         - title silent  -> the details decide (not a guess any more)
+         - they disagree -> note 'part:VALUE' so the dashboard warns you
+    Notes: 'sleeve' = had to assume it; 'neck:CN' = details say CN (conflict).
     Returns (None, [reason]) for things that are not on the price list."""
-    t, g = _clean(title), _clean(tags)
+    t, g = _clean(title), _clean(details)
     if _NOT_IN_LIST.search(t):
         return None, ["not on the price list (kids / sleeveless / other)"]
-    out, guessed = [], []
+    out, notes = [], []
     for part, rules, default in (("sleeve", _SLEEVE, "HS"), ("neck", _NECK, "RN"), ("print", _PRINT, "SUB")):
-        hit = next((k for k, rx in rules if rx.search(t)), None)
-        if hit is None:
-            hit = next((k for k, rx in rules if rx.search(g)), None)   # title silent: look at the tags
-            if hit is None:
-                hit = default
-                guessed.append(part)
+        in_title = next((k for k, rx in rules if rx.search(t)), None)
+        in_details = [k for k, rx in rules if rx.search(g)]          # every value the details mention
+        if in_title:
+            hit = in_title
+            if in_details and in_title not in in_details:
+                notes.append(f"{part}:{in_details[0]}")               # title and details disagree
+        elif len(in_details) == 1:
+            hit = in_details[0]                                       # details are clear
+        elif in_details:
+            hit = in_details[0]; notes.append(part)                   # details mention several: check it
+        else:
+            hit = default; notes.append(part)                         # nothing anywhere: assumed
         out.append(hit)
-    return tuple(out), guessed
+    return tuple(out), notes
 
 
 def clean_msretro_title(title: str) -> str:
@@ -205,7 +216,7 @@ def apply_msretro_prices(products: list, margin: float, round_to: int, overrides
         if tuple(chosen.split("|")) in MSRETRO_PRICES:
             typ, source = tuple(chosen.split("|")), "you"
         else:
-            typ, guessed = detect_type(p.name, " ".join(p.tags) + " " + p.category)
+            typ, guessed = detect_type(p.name, " ".join(p.tags) + " " + p.category + " " + (p.description or ""))
         p.price_auto = "|".join(typ) if typ and source == "title" else ""
         p.price_note = ",".join(guessed)
         if typ in MSRETRO_PRICES:
@@ -844,6 +855,15 @@ class Syncer:
         self.blocked = sync_cloud.blocked_skus()
         if self.review_mode:
             self.review = sync_cloud.review_rows()
+            refreshed = 0
+            for p in supplier:
+                row = self.review.get(p.sku)
+                if row and row.get("status") in ("pending", "approved") and hasattr(p, "price_auto") and \
+                        (row.get("price_auto") or "", row.get("price_note") or "") != (p.price_auto, p.price_note):
+                    sync_cloud.review_update(p.sku, {"price_auto": p.price_auto, "price_note": p.price_note, "name": p.name})
+                    refreshed += 1
+            if refreshed:
+                log.info("Review list: price type re-checked for %d product(s)", refreshed)
             rejected = {k for k, r in self.review.items() if r.get("status") == "rejected"}
             if rejected:
                 log.info("Rejected in the dashboard: %d product(s)", len(rejected))
