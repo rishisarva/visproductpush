@@ -5,8 +5,8 @@ visions_sync.py
 
 Keeps visionsjersey.com (WooCommerce) in sync with a Shopify supplier feed.
 
-Selling price = supplier price + MARGIN   (default 170)
-    supplier 440  ->  live 610
+Selling price = supplier price + MARGIN   (250, same for every supplier)
+    supplier 440  ->  live 690
 
 Commands
 --------
@@ -61,7 +61,7 @@ WC_URL = "https://visionsjersey.com"
 WC_KEY = "ck_paste_your_key_here"
 WC_SECRET = "cs_paste_your_secret_here"
 
-MARGIN = 250.0            # added to every supplier price: 440 -> 610
+MARGIN = 250.0            # added to every supplier price: 440 -> 690 (Thayyil and MS Retro)
 
 # ------------------------------------------------------------------ #
 #  Below here you can leave alone.                                    #
@@ -92,7 +92,7 @@ def setup_logging(verbose: bool) -> None:
 # ==========================================================================
 
 def sell_price(supplier_price: float, margin: float, round_to: int) -> float:
-    """440 + 170 = 610"""
+    """440 + 250 = 690"""
     price = supplier_price + margin
     if round_to > 0:
         price = math.ceil(price / round_to) * round_to
@@ -140,6 +140,72 @@ class SupplierProduct:
     @property
     def any_in_stock(self) -> bool:
         return any(v.in_stock for v in self.variants)
+
+
+# ==========================================================================
+# MS Retro price list  (used with --price-table msretro)
+#   Website price = MS Retro's wholesale price for the jersey TYPE + margin.
+#   Their website's retail price is NOT used.  Type is read from the title:
+#   sleeve (half / five / full) x neck (round RN / collar CN) x print
+#   (sublimation / embroidery).  You can correct it per product in the
+#   dashboard (Photos -> Review); that choice always wins.
+# ==========================================================================
+MSRETRO_PRICES = {
+    ("HS",   "RN", "SUB"): 240, ("HS",   "CN", "SUB"): 280, ("HS",   "RN", "EMB"): 280, ("HS",   "CN", "EMB"): 300,
+    ("FIVE", "RN", "SUB"): 280, ("FIVE", "CN", "SUB"): 310, ("FIVE", "RN", "EMB"): 310, ("FIVE", "CN", "EMB"): 340,
+    ("FULL", "RN", "SUB"): 290, ("FULL", "CN", "SUB"): 310, ("FULL", "RN", "EMB"): 310, ("FULL", "CN", "EMB"): 340,
+}
+_NOT_IN_LIST = re.compile(r"\b(sleeveless|vest|tank|kids?|junior|youth|shorts|track ?suit|tracksuit|jacket|hoodie|windbreaker|cap|socks?)\b")
+_SLEEVE = [("FULL", re.compile(r"\b(full ?sleeves?|fullsleeves?|long ?sleeves?|longsleeves?|fs)\b")),
+           ("FIVE", re.compile(r"\b(five ?sleeves?|fivesleeves?|5 ?sleeves?|3/4 ?sleeves?|3/4|three ?quarter|elbow ?sleeves?)\b")),
+           ("HS",   re.compile(r"\b(half ?sleeves?|halfsleeves?|short ?sleeves?|shortsleeves?|hs)\b"))]
+_NECK = [("CN", re.compile(r"\b(coll?[ae]r\w*|cn|polo|zip)\b")),
+         ("RN", re.compile(r"\b(round ?neck|roundneck|rn|crew ?neck|v ?neck)\b"))]
+_PRINT = [("EMB", re.compile(r"\bemb(?!lem)\w*")),
+          ("SUB", re.compile(r"\b(sublimat\w*|sub|printed|print)\b"))]
+
+
+def _clean(text: str) -> str:
+    return " " + re.sub(r"[^a-z0-9/]+", " ", (text or "").lower()) + " "
+
+
+def detect_type(title: str, tags: str = ""):
+    """(sleeve, neck, print) and the parts that had to be assumed.
+    Returns (None, [reason]) for things that are not on the price list."""
+    t, g = _clean(title), _clean(tags)
+    if _NOT_IN_LIST.search(t):
+        return None, ["not on the price list (kids / sleeveless / other)"]
+    out, guessed = [], []
+    for part, rules, default in (("sleeve", _SLEEVE, "HS"), ("neck", _NECK, "RN"), ("print", _PRINT, "SUB")):
+        hit = next((k for k, rx in rules if rx.search(t)), None)
+        if hit is None:
+            hit = next((k for k, rx in rules if rx.search(g)), None)   # title silent: look at the tags
+            if hit is None:
+                hit = default
+                guessed.append(part)
+        out.append(hit)
+    return tuple(out), guessed
+
+
+def apply_msretro_prices(products: list, margin: float, round_to: int, overrides: dict) -> None:
+    """Replace every variant's price with (list price for its type) + margin."""
+    for p in products:
+        typ, guessed, source = None, [], "title"
+        chosen = (overrides or {}).get(p.sku) or ""
+        if tuple(chosen.split("|")) in MSRETRO_PRICES:
+            typ, source = tuple(chosen.split("|")), "you"
+        else:
+            typ, guessed = detect_type(p.name, " ".join(p.tags) + " " + p.category)
+        p.price_auto = "|".join(typ) if typ and source == "title" else ""
+        p.price_note = ",".join(guessed)
+        if typ in MSRETRO_PRICES:
+            base = MSRETRO_PRICES[typ]
+            for v in p.variants:
+                v.supplier_price = float(base)
+                v.price = sell_price(base, margin, round_to)
+            p.price_type = "|".join(typ)
+        else:
+            p.price_type = ""        # unknown: stays hidden until you pick the type
 
 
 def strip_html(raw: str) -> str:
@@ -461,6 +527,9 @@ class Syncer:
         self.args = args
         self.stats = Stats()
         self.dry = args.dry_run
+        self.review_mode = bool(getattr(args, "review", False))
+        self.review: dict = {}            # sku -> row from the dashboard's Review list
+        self._went_live: list = []        # approved products published this run
 
     # ---- helpers --------------------------------------------------------
 
@@ -496,12 +565,15 @@ class Syncer:
             "name": product.name,
             "sku": product.sku,
             "type": "variable" if variable else "simple",
-            "status": "publish",
+            "status": "draft" if self.review_mode else "publish",
             "catalog_visibility": "visible",
             "description": product.description,
             "categories": [{"name": product.category}],
             "tags": [{"name": t} for t in product.tags[:10]],
-            "images": [{"src": src} for src in product.images[:self.args.max_images]],
+            # Review mode: no supplier photos on WordPress — your approved
+            # photos are attached when the product is published.
+            "images": [] if self.review_mode else
+                      [{"src": src} for src in product.images[:self.args.max_images]],
             "attributes": self._attr_block(product.option_name, product.sizes),
         }
 
@@ -574,6 +646,9 @@ class Syncer:
                 self.woo.call("POST", f"/products/{pid}/variations/batch",
                               json={"create": chunk})
 
+        if self.review_mode:
+            sync_cloud.review_add(product, pid, self.args.supplier)
+            log.info("   waiting for review in the dashboard")
         self.stats.created += 1
 
     # ---- update ---------------------------------------------------------
@@ -584,10 +659,32 @@ class Syncer:
         parent_changes: dict[str, Any] = {}
 
         # Product was drafted earlier because it vanished, and it's back
-        if existing.get("status") != "publish":
+        if existing.get("status") != "publish" and not self.review_mode:
             parent_changes["status"] = "publish"
             self.stats.relisted += 1
             log.info("RELIST  %s", product.name[:50])
+        elif existing.get("status") != "publish":
+            # Review mode: stays hidden until approved in the dashboard.
+            row = self.review.get(product.sku) or {}
+            status = row.get("status")
+            no_price = (getattr(self.args, "price_table", "") and
+                        not getattr(product, "price_type", ""))
+            if status in ("approved", "live") and no_price:
+                log.warning("HOLD    %s — approved, but its jersey type (price) is unknown; "
+                            "pick the type in the dashboard", product.name[:40])
+            elif status in ("approved", "live"):
+                if status == "approved":
+                    imgs = sync_cloud.edited_images(pid)
+                    if imgs:
+                        parent_changes["images"] = [{"src": u} for u in imgs]
+                parent_changes["status"] = "publish"
+                self._went_live.append(product.sku)
+                self.stats.relisted += 1
+                log.info("PUBLISH %s (approved in the dashboard)", product.name[:44])
+            elif not row:
+                sync_cloud.review_add(product, pid, self.args.supplier)
+            elif status == "gone":
+                sync_cloud.review_mark(product.sku, "pending")
 
         want_parent_stock = "instock" if product.any_in_stock else "outofstock"
         if existing.get("stock_status") != want_parent_stock:
@@ -707,6 +804,8 @@ class Syncer:
 
     def retire(self, existing: dict) -> None:
         name = existing.get("name", "")[:50]
+        if self.review_mode and (self.review.get(existing.get("sku")) or {}).get("status") == "pending":
+            sync_cloud.review_mark(existing.get("sku"), "gone")
         if self.args.delete_missing:
             log.info("DELETE  %s (gone from supplier)", name)
             if not self.dry:
@@ -731,6 +830,12 @@ class Syncer:
         # Products the owner removed in the app. These are deleted if present
         # and never created again, however often this runs.
         self.blocked = sync_cloud.blocked_skus()
+        if self.review_mode:
+            self.review = sync_cloud.review_rows()
+            rejected = {k for k, r in self.review.items() if r.get("status") == "rejected"}
+            if rejected:
+                log.info("Rejected in the dashboard: %d product(s)", len(rejected))
+            self.blocked = set(self.blocked) | rejected
         if self.blocked:
             log.info("Blocklist holds %d product(s)", len(self.blocked))
             for prod in existing_list:
@@ -757,10 +862,14 @@ class Syncer:
         by_sku = {p["sku"]: p for p in existing_list}
         supplier_by_sku = {p.sku: p for p in supplier}
 
+        new_count = 0
         for i, product in enumerate(supplier, start=1):
             try:
                 current = by_sku.get(product.sku)
                 if current is None:
+                    if self.args.max_new and new_count >= self.args.max_new:
+                        continue          # the rest come in on the next runs
+                    new_count += 1
                     self.create(product)
                 else:
                     self.update(product, current, variations_map.get(current["id"], []))
@@ -781,6 +890,8 @@ class Syncer:
                 self.stats.errors += 1
                 log.error("FAILED retiring %s: %s", sku, exc)
 
+        for sku in self._went_live:
+            sync_cloud.review_mark(sku, "live")
         return self.stats
 
 
@@ -904,6 +1015,12 @@ def cmd_sync(args) -> int:
         supplier = supplier[:args.limit]
         log.info("Limited to first %d products", len(supplier))
 
+    if getattr(args, "price_table", "") == "msretro":
+        apply_msretro_prices(supplier, args.margin, args.round_to, sync_cloud.price_overrides())
+        unknown = [p for p in supplier if not p.price_type]
+        log.info("MS Retro price list applied (+%s margin); %d product(s) need their type picked "
+                 "in the dashboard", money(args.margin), len(unknown))
+
     woo = Woo(args.wc_url, args.wc_key, args.wc_secret)
     stats = Syncer(woo, args).run(supplier)
 
@@ -915,13 +1032,17 @@ def cmd_sync(args) -> int:
     # instantly even on a phone the site's wall will not talk to.
     try:
         live = woo.list_products(SKU_PREFIX)
-        sync_cloud.snapshot_products(live, supplier)
+        if getattr(args, "review", False):
+            # products still waiting for review are not shown in the app
+            live = [p for p in live if p.get("status") == "publish"]
+        sync_cloud.snapshot_products(live, supplier, prefix=SKU_PREFIX)
         sync_cloud.report_run(
             stats,
             supplier_products=len(supplier),
             site_products=len(live),
             seconds=elapsed,
             blocked=stats.blocked_skipped + stats.blocked_removed,
+            note="" if SKU_PREFIX == "TS-" else f"{SKU_PREFIX} {args.supplier}",
         )
         log.info("Reported to the app (%d products mirrored)", len(live))
     except Exception as exc:  # noqa: BLE001
@@ -1062,6 +1183,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Ignore products where every size is out of stock")
         sp.add_argument("--dry-run", action="store_true")
         sp.add_argument("-v", "--verbose", action="store_true")
+        sp.add_argument("--prefix", default=SKU_PREFIX,
+                        help="SKU label for this supplier (TS- = Thayyil, MS- = MS Retro). "
+                             "A run only ever touches products with its own label.")
 
     t = sub.add_parser("test", help="Check both ends, change nothing")
     common(t)
@@ -1087,6 +1211,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Delete removed sizes instead of marking out of stock")
         sp.add_argument("--delete-missing", action="store_true",
                         help="Delete vanished products instead of drafting them")
+        sp.add_argument("--review", action="store_true",
+                        help="New products are created hidden and only go live after "
+                             "they are approved in the dashboard's Photos -> Review tab")
+        sp.add_argument("--max-new", type=int, default=0,
+                        help="Create at most N new products per run (0 = no limit)")
+        sp.add_argument("--price-table", default="", choices=["", "msretro"],
+                        help="Price = the supplier's wholesale list price for the jersey "
+                             "type (read from the title) + margin, not their website price")
 
     s = sub.add_parser("sync", help="Reconcile WooCommerce against the supplier")
     common(s)
@@ -1110,6 +1242,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     setup_logging(getattr(args, "verbose", False))
+    # Every SKU-scoped step (building SKUs, listing, retiring) reads this.
+    global SKU_PREFIX
+    SKU_PREFIX = getattr(args, "prefix", SKU_PREFIX) or SKU_PREFIX
 
     handlers = {"test": cmd_test, "sync": cmd_sync,
                 "first-run": cmd_first_run, "wipe": cmd_wipe}
