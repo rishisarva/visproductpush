@@ -179,7 +179,9 @@ def _num(v):
 
 def review_rows() -> dict:
     """sku -> row, for the products of every review-mode supplier."""
-    rows = _call("GET", "vj_review?select=sku,status,product_id") or []
+    rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note") or []
+    if not rows:   # older table without the price columns: fall back to the basics
+        rows = _call("GET", "vj_review?select=sku,status,product_id") or []
     return {r["sku"]: r for r in rows if r.get("sku")}
 
 
@@ -212,6 +214,14 @@ def price_overrides() -> dict:
     """sku -> jersey type you picked in the Review tab, e.g. 'HS|CN|EMB'."""
     rows = _call("GET", "vj_review?select=sku,price_type") or []
     return {r["sku"]: r["price_type"] for r in rows if r.get("sku") and r.get("price_type")}
+
+
+def review_update(sku: str, fields: dict) -> None:
+    if not ENABLED or not sku:
+        return
+    from datetime import datetime, timezone
+    _call("PATCH", f"vj_review?sku=eq.{sku}", json={**fields, "updated_at": datetime.now(timezone.utc).isoformat()},
+          extra_headers={"Prefer": "return=minimal"})
 
 
 def review_mark(sku: str, status: str) -> None:
