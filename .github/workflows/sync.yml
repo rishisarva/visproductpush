@@ -88,6 +88,44 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python -u image_cdn.py
 
+      # Photos, the product list and the Meta catalogue go to Cloudflare Pages
+      # (vj-images.pages.dev), right after the stock is updated. Your edited
+      # photos (dashboard) always win over the supplier's. The shop, /join and
+      # Meta read from Cloudflare, so shoppers don't use up Supabase's quota.
+      # Only what changed is uploaded. continue-on-error: a photo hiccup can
+      # never block the stock sync or the commit below.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Restore photos made earlier
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            vj-home/site
+            vj-home/last-upload.txt
+          key: vj-photos-${{ github.run_id }}
+          restore-keys: vj-photos-
+
+      - name: Photos, product list and Meta catalogue to Cloudflare
+        continue-on-error: true
+        env:
+          VJ_HOME: ${{ github.workspace }}/vj-home
+          VJ_SUPA: ${{ secrets.SUPABASE_URL }}
+          VJ_SERVICE_KEY: ${{ secrets.SUPABASE_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python -u vj_images.py --ci
+
+      - name: Keep photos for the next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            vj-home/site
+            vj-home/last-upload.txt
+          key: vj-photos-${{ github.run_id }}
+
       - name: Save results
         run: |
           git config user.name  "sync bot"
