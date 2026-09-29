@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.9 (29 Sep 2026) · adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.10 (29 Sep 2026) · product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -213,6 +213,23 @@ def detail_lines(body):
     return out[:10]
 
 
+_TAG_SKIP = re.compile(r'^(p\s?\d+|all|new|new arrivals?|sale|hot|best ?sellers?|trending|featured|top|popular|'
+                       r'football|football jerseys?|jerseys?|retro|retro jerseys?|club|clubs?|country|national|kit|kits|ms ?retro.*)$', re.I)
+
+
+def tag_lines(tags):
+    '''MS Retro's tags ("Round neck", "half sleeve", "Embroidery logo" ...) -> detail lines.'''
+    if isinstance(tags, str):
+        tags = tags.split(',')
+    out = []
+    for t in tags or []:
+        t = re.sub(r'\s+', ' ', str(t)).strip(' \u2022-\u2013\u00b7*:')
+        if not t or len(t) > 60 or _TAG_SKIP.match(t) or _DETAIL_SKIP.search(t):
+            continue
+        out.append(t[0].upper() + t[1:])
+    return out
+
+
 def ms_details(token):
     '''{shop product id: [detail lines]} for MS Retro products (label MS-).'''
     try:
@@ -227,7 +244,13 @@ def ms_details(token):
             batch = json.loads(get(f'{MS_STORE}/products.json?limit=250&page={page}')).get('products', [])
             for prod in batch:
                 pid = by_handle.get(prod.get('handle', ''))
-                lines = detail_lines(prod.get('body_html', '')) if pid else []
+                lines = []
+                if pid:
+                    seen = set()
+                    for line in tag_lines(prod.get('tags')) + detail_lines(prod.get('body_html', '')):
+                        if line.lower() not in seen:
+                            seen.add(line.lower()); lines.append(line)
+                    lines = lines[:10]
                 if lines:
                     out[pid] = lines
             if len(batch) < 250:
@@ -449,7 +472,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.9' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.10' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
