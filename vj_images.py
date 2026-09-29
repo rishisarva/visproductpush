@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.10 (29 Sep 2026) · product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.11 (29 Sep 2026) · adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -198,6 +198,46 @@ def make_webp(raw, width, quality, dest, fmt='WEBP'):
 _DETAIL_SKIP = re.compile(r'ms\s*retro|whats\s*app|https?:|www\.|\d{10}|size\s*chart|instagram|\bcall\b|contact|\bcod\b|cash on|order now|dm\b', re.I)
 
 
+STOCK_FUNCTION = r"""// Live stock checker — part of the Visions Jersey photo site.
+// GET /stock?h=<ms retro product handle>  ->  {"ok":true,"sizes":{"S":true,"M":false,...}}
+// Asks MS Retro (Shopify) right now; each answer is reused for 15 s (browsers never store it).
+export async function onRequestGet({ request }) {
+  const url = new URL(request.url);
+  const h = (url.searchParams.get('h') || '').trim().toLowerCase();
+  const head = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8' };
+  if (!/^[a-z0-9][a-z0-9_-]{0,250}$/.test(h)) {
+    return new Response(JSON.stringify({ ok: false, error: 'bad handle' }), { status: 400, headers: head });
+  }
+  try {
+    const r = await fetch('https://msretro.com/products/' + h + '.js', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VisionsJersey-stock/1.0)', 'Accept': 'application/json' },
+      cf: { cacheTtl: 15, cacheEverything: true },
+    });
+    if (r.status === 404) {
+      return new Response(JSON.stringify({ ok: true, gone: true, sizes: {} }), { headers: { ...head, 'Cache-Control': 'no-store' } });
+    }
+    if (!r.ok) throw new Error('status ' + r.status);
+    const p = await r.json();
+    const sizes = {};
+    for (const v of p.variants || []) {
+      const name = String(v.option1 || '').trim();     // same as the sync: option 1 is the size
+      if (name) sizes[name] = !!v.available || !!sizes[name];
+    }
+    return new Response(JSON.stringify({ ok: true, sizes, at: Date.now() }), { headers: { ...head, 'Cache-Control': 'no-store' } });
+  } catch (e) {
+    return new Response(JSON.stringify({ ok: false }), { status: 502, headers: head });
+  }
+}
+"""
+
+
+def write_stock_function():
+    d = os.path.join(HOME, 'functions')
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, 'stock.js'), 'w') as f:
+        f.write(STOCK_FUNCTION)
+
+
 def detail_lines(body):
     '''MS Retro description -> short clean lines ("Round neck", "Embroidery logo" ...).'''
     t = re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', body or '', flags=re.S | re.I)
@@ -261,6 +301,18 @@ def ms_details(token):
         return {}
 
 
+def ms_handles(token):
+    '''{shop product id: MS Retro handle} for MS Retro products (label MS-).'''
+    try:
+        rows = json.loads(get(f'{SUPA}/rest/v1/vj_review?select=sku,product_id',
+                              {'apikey': APIKEY, 'Authorization': f'Bearer {token}'}))
+        return {str(r['product_id']): r['sku'][3:] for r in rows
+                if (r.get('sku') or '').startswith('MS-') and r.get('product_id')}
+    except Exception as e:
+        say(f'  (MS Retro product links skipped: {type(e).__name__})')
+        return {}
+
+
 def build(token):
     feed_raw = get(f'{SUPA}/storage/v1/object/public/feeds/shop-products.json')
     feed = json.loads(feed_raw)
@@ -269,16 +321,21 @@ def build(token):
     # v1.9: MS Retro products get a "details" list (from their description),
     # shown above the sizes on the product page. Everything else is unchanged.
     details = ms_details(token)
+    handles = ms_handles(token)          # v1.11: lets the product page ask MS Retro for live stock
     os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
     with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
-        if details:
+        if details or handles:
             copy = json.loads(feed_raw)
             for p in copy:
                 d = details.get(str(p.get('id', '')))
                 if d:
                     p['details'] = d
+                h = handles.get(str(p.get('id', '')))
+                if h:
+                    p['ms'] = h
             f.write(json.dumps(copy, ensure_ascii=False, separators=(',', ':')).encode())
             say(f'Product details added for {sum(1 for p in copy if p.get("details"))} MS Retro product(s)')
+            say(f'Live stock check ready for {sum(1 for p in copy if p.get("ms"))} MS Retro product(s)')
         else:
             f.write(feed_raw)
     say(f'Products in the shop: {len(feed)}')
@@ -407,6 +464,7 @@ def fingerprint():
     for name in ('shop-products.json', 'meta-products.csv'):
         fp = os.path.join(SITE, 'feeds', name)
         feed += open(fp, 'rb').read() if os.path.exists(fp) else b''
+    feed += STOCK_FUNCTION.encode()      # a new checker version also counts as "something new"
     return hashlib.sha1((open(os.path.join(SITE, 'map.json')).read() + '|'.join(files)).encode() + feed).hexdigest()
 
 
@@ -424,8 +482,9 @@ def deploy():
     say('\nUploading to Cloudflare… (the first time, a browser window opens: log in to Cloudflare and click Allow)')
     subprocess.run(['npx', '--yes', 'wrangler@4', 'pages', 'project', 'create', PROJECT, '--production-branch', 'main'],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)   # already exists? that's fine
+    write_stock_function()
     r = subprocess.run(['npx', '--yes', 'wrangler@4', 'pages', 'deploy', SITE, '--project-name', PROJECT,
-                        '--branch', 'main', '--commit-dirty=true'],
+                        '--branch', 'main', '--commit-dirty=true'], cwd=HOME,
                        stdin=subprocess.DEVNULL if AUTO else None,
                        stdout=open(LOG, 'a') if (AUTO and not CI) else None, stderr=subprocess.STDOUT if (AUTO and not CI) else None)
     if r.returncode != 0:
@@ -472,7 +531,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.10' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.11' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
