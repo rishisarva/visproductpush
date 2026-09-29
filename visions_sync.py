@@ -209,11 +209,25 @@ def clean_msretro_title(title: str) -> str:
     return (t or (title or "").strip()).upper()             # capitals, like the rest of the shop
 
 
+# Premium kits (the title says imported / player version / master) are not on
+# the price list: they cost MS Retro's own website price + PREMIUM_MARGIN.
+PREMIUM_RX = re.compile(r"\b(imported|player'?s?\s*version|master)\b", re.I)
+PREMIUM_MARGIN = 300.0
+
+
 def apply_msretro_prices(products: list, margin: float, round_to: int, overrides: dict) -> None:
-    """Replace every variant's price with (list price for its type) + margin."""
+    """Replace every variant's price with (list price for its type) + margin.
+    Premium kits: MS Retro's website price + PREMIUM_MARGIN (type 'SITE')."""
     for p in products:
         typ, guessed, source = None, [], "title"
         chosen = (overrides or {}).get(p.sku) or ""
+        if chosen == "SITE" or (not chosen and PREMIUM_RX.search(p.name or "")):
+            for v in p.variants:              # v.supplier_price is still MS Retro's website price here
+                v.price = sell_price(v.supplier_price, PREMIUM_MARGIN, round_to)
+            p.price_type = "SITE"
+            p.price_auto = "" if chosen == "SITE" else "SITE"
+            p.price_note = ""
+            continue
         if tuple(chosen.split("|")) in MSRETRO_PRICES:
             typ, source = tuple(chosen.split("|")), "you"
         else:
@@ -864,7 +878,10 @@ class Syncer:
                 row = self.review.get(p.sku)
                 if row and row.get("status") in ("pending", "approved") and hasattr(p, "price_auto") and \
                         (row.get("price_auto") or "", row.get("price_note") or "") != (p.price_auto, p.price_note):
-                    sync_cloud.review_update(p.sku, {"price_auto": p.price_auto, "price_note": p.price_note, "name": p.name})
+                    fields = {"price_auto": p.price_auto, "price_note": p.price_note, "name": p.name}
+                    if p.variants:
+                        fields["price"] = min(v.price for v in p.variants)       # your selling price
+                    sync_cloud.review_update(p.sku, fields)
                     refreshed += 1
             if refreshed:
                 log.info("Review list: price type re-checked for %d product(s)", refreshed)
