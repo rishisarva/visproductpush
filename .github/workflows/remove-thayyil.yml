@@ -1,0 +1,45 @@
+name: Remove Thayyil products (run once)
+
+# ONE-TIME: permanently deletes every Thayyil product (SKU label TS-) from the
+# website and from the app's product list. Nothing else is touched: MS Retro
+# products (MS-) and all orders stay exactly as they are.
+#
+# How: Actions tab -> "Remove Thayyil products (run once)" -> Run workflow.
+# Afterwards you can delete this file; the hourly sync never touches Thayyil.
+# Running it again is harmless: it finds nothing to delete.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shop              # never runs at the same time as the sync
+  cancel-in-progress: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+
+      - name: Delete every Thayyil (TS-) product from the website
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -u visions_sync.py wipe --prefix "TS-" --yes
+
+      - name: Remove them from the app's product list
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -c "import sync_cloud; print('removed from the app list:', sync_cloud.forget_products('TS-'))"
