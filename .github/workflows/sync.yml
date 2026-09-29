@@ -29,20 +29,6 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      # Thayyil Sports is switched off (29 Sep 2026). This step only HIDES its
-      # products (label TS-); nothing is deleted, so old orders keep their
-      # links. It runs every time so they stay hidden, touches no other
-      # products, and finishes in seconds when there is nothing to do.
-      - name: Thayyil switched off (keep its products hidden)
-        continue-on-error: true
-        env:
-          WC_URL: ${{ secrets.WC_URL }}
-          WC_KEY: ${{ secrets.WC_KEY }}
-          WC_SECRET: ${{ secrets.WC_SECRET }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -u visions_sync.py hide-all --prefix "TS-"
-
       # MS Retro. Its products have their own label (MS-), so this step can
       # never touch the Thayyil products above. New products are created
       # HIDDEN and wait in the dashboard's Photos -> Review tab; they only go
