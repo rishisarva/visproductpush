@@ -1,6 +1,6 @@
 # MS Retro stock study
 
-Data: 291 size counts, 102 live products, 30 Sep 19:40 → 30 Sep 21:32 UTC (0.1 days).
+Data: 311 size counts, 102 live products, 30 Sep 19:40 → 30 Sep 22:32 UTC (0.1 days).
 
 ## Pieces left per size right now
 
@@ -34,4 +34,4 @@ Data: 291 size counts, 102 live products, 30 Sep 19:40 → 30 Sep 21:32 UTC (0.1
 
 No size has run out yet in this period, so there is nothing to learn from yet. Keep the current bar (2) and check back in a few days.
 
-_Updated 30 Sep 2026 21:32 UTC by stock_study.py — one snapshot per sync run._
+_Updated 30 Sep 2026 22:32 UTC by stock_study.py — one snapshot per sync run._
