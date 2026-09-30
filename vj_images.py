@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.12 (30 Sep 2026) · the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.13 (30 Sep 2026) · also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -69,6 +69,40 @@ def get(url, headers=None, timeout=40):
     req = urllib.request.Request(url, headers={**UA, **(headers or {})})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
+
+
+def supa_send(method, path, data=None, ctype='application/json', extra=None):
+    '''Write to Supabase with the service key (GitHub runs only).'''
+    req = urllib.request.Request(f'{SUPA}{path}', data=data, method=method,
+                                 headers={**UA, 'apikey': SERVICE, 'Authorization': f'Bearer {SERVICE}',
+                                          'Content-Type': ctype, **(extra or {})})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return r.status
+
+
+def purge_leftovers(keep, feed_json=None):
+    '''v1.13: delete products that are not MS Retro (old Thayyil) from the plugin's
+    Supabase copies, so no page anywhere can show them. Safety: needs a proper
+    MS Retro list, and never deletes more than 60% of anything.'''
+    if not (CI and SERVICE) or len(keep) < 5:
+        return
+    try:                                   # 1) the live table the shop re-checks stock against
+        rows = json.loads(get(f'{SUPA}/rest/v1/shop_products?select=id', {'apikey': SERVICE, 'Authorization': f'Bearer {SERVICE}'}))
+        stale = [str(r['id']) for r in rows if str(r.get('id')) not in keep]
+        if stale and len(stale) <= 0.6 * len(rows):
+            for i in range(0, len(stale), 100):
+                supa_send('DELETE', '/rest/v1/shop_products?id=in.(' + ','.join(stale[i:i + 100]) + ')', extra={'Prefer': 'return=minimal'})
+            say(f'Deleted {len(stale)} leftover product(s) from shop_products')
+        elif stale:
+            say(f'  ! shop_products: {len(stale)} of {len(rows)} rows are not MS Retro — too many, left alone (check it)')
+    except Exception as e:
+        say(f'  (shop_products clean-up skipped: {type(e).__name__})')
+    if feed_json is not None:              # 2) the plugin's product list file on Supabase
+        try:
+            supa_send('POST', '/storage/v1/object/feeds/shop-products.json', feed_json, 'application/json', {'x-upsert': 'true'})
+            say('Supabase product list rewritten without the leftovers')
+        except Exception as e:
+            say(f'  (Supabase product list not rewritten: {type(e).__name__})')
 
 
 def post_json(url, body, headers=None):
@@ -329,8 +363,11 @@ def build(token):
         before = len(feed)
         feed = [p for p in feed if str(p.get('id', '')) in handles]
         feed_raw = json.dumps(feed, ensure_ascii=False, separators=(',', ':')).encode()
-        if before != len(feed):
-            say(f'Removed {before - len(feed)} product(s) that are not MS Retro (old leftovers)')
+        removed = before - len(feed)
+        if removed:
+            say(f'Removed {removed} product(s) that are not MS Retro (old leftovers)')
+        # v1.13: and delete them at the source (only if it isn't most of the list)
+        purge_leftovers(set(handles), feed_raw if removed and removed <= 0.6 * before else None)
     os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
     with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
         if details or handles:
@@ -462,6 +499,13 @@ def meta_catalogue(feed, photo_map, keep=None):
         dropped -= len(rows) - 1
         if dropped:
             say(f'Meta catalogue: removed {dropped} product(s) that are not MS Retro')
+            if CI and SERVICE and dropped <= 0.6 * (dropped + len(rows) - 1):   # v1.13: fix the Supabase copy too
+                try:
+                    out0 = io.StringIO(); csv.writer(out0, lineterminator='\n').writerows(rows)
+                    supa_send('POST', '/storage/v1/object/feeds/meta-products.csv', out0.getvalue().encode('utf-8'), 'text/csv', {'x-upsert': 'true'})
+                    say('Supabase Meta catalogue rewritten without the leftovers')
+                except Exception as e:
+                    say(f'  (Supabase Meta catalogue not rewritten: {type(e).__name__})')
     cols = [i for i, c in enumerate(head) if c in ('image_link', 'additional_image_link')]
     for r in rows[1:]:
         for i in cols:
@@ -547,7 +591,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.12' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.13' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
