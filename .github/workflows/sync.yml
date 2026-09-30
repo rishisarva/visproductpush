@@ -35,7 +35,9 @@ jobs:
       # live after you approve them, with your photos, never MS Retro's.
       # Price = MS Retro's wholesale list price for the jersey type (read from
       # the title: half/five/full sleeve, round/collar neck, sublimation/
-      # embroidery) + the 250 margin; their website price is not used.
+      # embroidery) + the 270 margin (--margin 270); their website price is not
+      # used. Premium kits (imported / player version / master) = MS Retro's
+      # website price + 300, unchanged.
       # At most 150 new products per run (the first import finishes in about
       # 3 runs); stock and sizes of EVERY existing product update every run.
       - name: MS Retro (new products wait for your approval)
@@ -53,6 +55,7 @@ jobs:
           --prefix "MS-"
           --review
           --price-table msretro
+          --margin 270
           --max-new 150
           --attribute-name "sizes"
           --skip-sold-out
