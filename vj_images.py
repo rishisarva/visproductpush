@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.13 (30 Sep 2026) · also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.14 (1 Oct 2026) · live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -252,12 +252,17 @@ export async function onRequestGet({ request }) {
     }
     if (!r.ok) throw new Error('status ' + r.status);
     const p = await r.json();
-    const sizes = {};
+    const sizes = {}, qty = {};
     for (const v of p.variants || []) {
       const name = String(v.option1 || '').trim();     // same as the sync: option 1 is the size
-      if (name) sizes[name] = !!v.available || !!sizes[name];
+      if (!name) continue;
+      sizes[name] = !!v.available || !!sizes[name];
+      // v1.14: exact pieces left, only when Shopify tracks this variant's stock
+      if (v.inventory_management === 'shopify' && typeof v.inventory_quantity === 'number' && v.inventory_policy !== 'continue') {
+        qty[name] = (qty[name] || 0) + Math.max(0, v.inventory_quantity);
+      }
     }
-    return new Response(JSON.stringify({ ok: true, sizes, at: Date.now() }), { headers: { ...head, 'Cache-Control': 'no-store' } });
+    return new Response(JSON.stringify({ ok: true, sizes, qty, at: Date.now() }), { headers: { ...head, 'Cache-Control': 'no-store' } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false }), { status: 502, headers: head });
   }
@@ -591,7 +596,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.13' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.14' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
