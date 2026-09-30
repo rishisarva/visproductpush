@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.11 (29 Sep 2026) · adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.12 (30 Sep 2026) · the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -322,6 +322,15 @@ def build(token):
     # shown above the sizes on the product page. Everything else is unchanged.
     details = ms_details(token)
     handles = ms_handles(token)          # v1.11: lets the product page ask MS Retro for live stock
+    if handles:
+        # v1.12: only MS Retro products are real products now. Anything else in the
+        # plugin's list is a removed leftover (old Thayyil) — drop it everywhere
+        # (product list, photos, Meta catalogue) so nobody can see or order it.
+        before = len(feed)
+        feed = [p for p in feed if str(p.get('id', '')) in handles]
+        feed_raw = json.dumps(feed, ensure_ascii=False, separators=(',', ':')).encode()
+        if before != len(feed):
+            say(f'Removed {before - len(feed)} product(s) that are not MS Retro (old leftovers)')
     os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
     with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
         if details or handles:
@@ -401,7 +410,7 @@ def build(token):
 
     with open(os.path.join(SITE, 'map.json'), 'w') as f:
         json.dump(photo_map, f, separators=(',', ':'))
-    meta_catalogue(feed, photo_map)
+    meta_catalogue(feed, photo_map, keep={str(p.get('id', '')) for p in feed} if handles else None)
     with open(os.path.join(SITE, '_headers'), 'w') as f:
         f.write('/p/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'
                 '/map.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n'
@@ -413,7 +422,7 @@ def build(token):
     return total
 
 
-def meta_catalogue(feed, photo_map):
+def meta_catalogue(feed, photo_map, keep=None):
     """v1.8: a copy of the Meta catalogue file where every photo link that we
     have on Cloudflare points to Cloudflare (a JPEG, your edited photo if you
     made one) instead of a full-size original on Supabase or WordPress.
@@ -446,6 +455,13 @@ def meta_catalogue(feed, photo_map):
     if not rows:
         return
     head = rows[0]
+    if keep is not None and 'id' in head:          # v1.12: only current (MS Retro) products
+        idc = head.index('id')
+        dropped = len(rows) - 1
+        rows = [head] + [r for r in rows[1:] if idc < len(r) and r[idc].strip() in keep]
+        dropped -= len(rows) - 1
+        if dropped:
+            say(f'Meta catalogue: removed {dropped} product(s) that are not MS Retro')
     cols = [i for i, c in enumerate(head) if c in ('image_link', 'additional_image_link')]
     for r in rows[1:]:
         for i in cols:
@@ -531,7 +547,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.11' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.12' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
