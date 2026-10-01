@@ -34,4 +34,4 @@ Data: 1,000 size counts, 107 live products, 30 Sep 19:40 → 01 Oct 06:13 UTC (0
 
 No size has run out yet in this period, so there is nothing to learn from yet. Keep the current bar (2) and check back in a few days.
 
-_Updated 01 Oct 2026 07:30 UTC by stock_study.py — one snapshot per sync run._
+_Updated 01 Oct 2026 08:21 UTC by stock_study.py — one snapshot per sync run._
