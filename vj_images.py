@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.17 (1 Oct 2026) · checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.19 (1 Oct 2026) · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -254,6 +254,7 @@ async function probeQty(variantId, want) {
   const cache = typeof caches !== 'undefined' ? caches.default : null;
   if (cache) { const hit = await cache.match(key); if (hit) { const j = await hit.json(); return j.n; } }
   if (cache && await cache.match(COOL)) { LIMITED = true; return null; }      // MS Retro asked us to slow down
+  let remember = 0;                                                         // seconds to reuse this answer
   let n = null;
   try {
     const r = await fetch('https://msretro.com/cart/add.js', {
@@ -270,6 +271,7 @@ async function probeQty(variantId, want) {
       const it = items.find((x) => String(x.variant_id || x.id) === String(variantId)) || items[0];
       const q = it && typeof it.quantity === 'number' ? it.quantity : null;
       n = q != null && q < want ? q : null;                // less than asked = that's all there is
+      if (n == null) remember = 1800;                      // plenty in stock: ask again in 30 min
     } else if (r.status === 422) {
       n = readCount((j && (j.description || j.message)) || text);   // style 1: "You can only add 12 …"
     } else if (r.status === 429) {
@@ -277,7 +279,8 @@ async function probeQty(variantId, want) {
       if (cache) { try { await cache.put(COOL, new Response('1', { headers: { 'Cache-Control': 'public, max-age=300' } })); } catch (e) {} }
     }
   } catch (e) { LAST_PROBE = { variant: variantId, asked: want, error: String(e) }; }
-  if (cache && n != null) { try { await cache.put(key, new Response(JSON.stringify({ n }), { headers: { 'Cache-Control': 'public, max-age=120' } })); } catch (e) {} }
+  if (n != null) remember = n <= 1 ? 300 : n <= 4 ? 600 : 1800;        // low stock is re-checked sooner
+  if (cache && remember) { try { await cache.put(key, new Response(JSON.stringify({ n }), { headers: { 'Cache-Control': 'public, max-age=' + remember } })); } catch (e) {} }
   return n;
 }
 
@@ -307,13 +310,17 @@ export async function onRequestGet({ request }) {
       if (typeof v.inventory_quantity === 'number' && v.inventory_management === 'shopify' && v.inventory_policy !== 'continue') {
         qty[name] = (qty[name] || 0) + Math.max(0, v.inventory_quantity);          // if the store ever publishes counts
       } else if (v.available && v.inventory_management === 'shopify') {
-        probes.push(probeQty(v.id, full ? 9999 : LOW_PROBE).then((n) => { if (n != null) qty[name] = (qty[name] || 0) + n; }));
+        probes.push([v.id, name]);
       } else if (!v.available && v.inventory_management === 'shopify') {
         qty[name] = qty[name] || 0;
       }
     }
-    await Promise.all(probes);
-    const body = { ok: true, sizes, qty, at: Date.now() };
+    for (const [id, name] of probes) {           // one at a time: no bursts at MS Retro's cart
+      if (LIMITED) break;
+      const n = await probeQty(id, full ? 9999 : LOW_PROBE);
+      if (n != null) qty[name] = (qty[name] || 0) + n;
+    }
+    const body = { ok: true, title: String(p.title || ''), sizes, qty, at: Date.now() };
     if (LIMITED) body.limited = true;          // counts paused: MS Retro said "too many attempts"
     LIMITED = false;
     if (url.searchParams.get('debug') === '1') body.debug = LAST_PROBE;   // MS Retro's raw reply to the last probe
@@ -651,7 +658,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.17' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.19' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
