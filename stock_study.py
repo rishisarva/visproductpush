@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey — MS Retro stock study v1 (1 Oct 2026)
+Visions Jersey — MS Retro stock study v2 (1 Oct 2026) · gentle: every 6 hours, 40 products, one at a time with a pause (MS Retro limits cart checks)
 
 Runs at the end of every sync (GitHub Actions). Each run:
   1. records, for every LIVE MS Retro product, the exact pieces left per size
@@ -13,14 +13,16 @@ Env: SUPABASE_URL, SUPABASE_KEY (service role), optional STUDY_URL
      (default https://vj-images.pages.dev/stock), STUDY_MAX (default 150),
      STUDY_DAYS (default 14).
 """
-import json, os, statistics, sys, urllib.parse, urllib.request
+import json, os, statistics, sys, time, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 SUPA = os.environ.get('SUPABASE_URL', '').rstrip('/')
 KEY = os.environ.get('SUPABASE_KEY', '')
 CHECK = os.environ.get('STUDY_URL', 'https://vj-images.pages.dev/stock')
-MAXP = int(os.environ.get('STUDY_MAX', '150'))
+MAXP = int(os.environ.get('STUDY_MAX', '40'))
+EVERY_H = int(os.environ.get('STUDY_EVERY_HOURS', '6'))     # snapshot only every N hours
+PAUSE = float(os.environ.get('STUDY_PAUSE', '4'))           # seconds between products
 DAYS = int(os.environ.get('STUDY_DAYS', '14'))
 OUT = os.environ.get('STUDY_OUT', 'docs/stock-study.md')
 H = {'apikey': KEY, 'Authorization': f'Bearer {KEY}', 'Content-Type': 'application/json'}
@@ -48,7 +50,7 @@ def live_products():
 def check(handle):
     try:
         j = req('GET', f'{CHECK}?h={urllib.parse.quote(handle)}&full=1', timeout=45)
-        if j and j.get('ok') and isinstance(j.get('qty'), dict):
+        if j and j.get('ok') and isinstance(j.get('qty'), dict) and not j.get('limited'):
             return j['qty']
     except Exception:
         pass
@@ -58,14 +60,19 @@ def check(handle):
 def snapshot(products):
     now = datetime.now(timezone.utc).isoformat()
     rows, missed = [], 0
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        for p, qty in zip(products, pool.map(lambda p: check(p['handle']), products)):
-            if qty is None:
-                missed += 1
-                continue
-            for size, n in qty.items():
-                if isinstance(n, (int, float)):
-                    rows.append({'at': now, 'product_id': p['pid'], 'handle': p['handle'], 'size': size, 'qty': int(n)})
+    for k, p in enumerate(products):          # one at a time, with a pause: MS Retro limits cart checks
+        if k:
+            time.sleep(PAUSE)
+        qty = check(p['handle'])
+        if qty is None:
+            missed += 1
+            if missed >= 3 and missed > k // 2:
+                say('  MS Retro is limiting checks right now — stopping this snapshot early')
+                break
+            continue
+        for size, n in qty.items():
+            if isinstance(n, (int, float)):
+                rows.append({'at': now, 'product_id': p['pid'], 'handle': p['handle'], 'size': size, 'qty': int(n)})
     for i in range(0, len(rows), 500):
         req('POST', f'{SUPA}/rest/v1/vj_stock_log', rows[i:i + 500], headers={**H, 'Prefer': 'return=minimal'})
     say(f'Recorded {len(rows)} size counts for {len(products) - missed} product(s) ({missed} could not be checked)')
@@ -158,7 +165,10 @@ def report(rows):
 def main():
     if not (SUPA and KEY):
         sys.exit('SUPABASE_URL / SUPABASE_KEY missing')
-    if 'report' not in sys.argv:
+    due = datetime.now(timezone.utc).hour % EVERY_H == 0
+    if 'report' not in sys.argv and not due and 'now' not in sys.argv:
+        say(f'Snapshot skipped this hour (taken every {EVERY_H} hours) — report refreshed only')
+    elif 'report' not in sys.argv:
         products = live_products()
         say(f'Live MS Retro products to study: {len(products)}')
         if products:
