@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.15 (1 Oct 2026) · live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.16 (1 Oct 2026) · checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -241,8 +241,14 @@ STOCK_FUNCTION = r"""// Live stock checker — part of the Visions Jersey photo 
 // left. With &full=1 we ask for 9999 to learn the exact count. It's a throwaway cart
 // on their side (no order, no email); answers are reused for 2 minutes.
 const LOW_PROBE = 3;
+let LAST_PROBE = null;                       // for &debug=1
+function readCount(text) {                  // the real count in Shopify's message — never a year from the title
+  const t = String(text || '');
+  const m = t.match(/only\s+(?:add|have|has)\s+(\d+)/i) || t.match(/\ball\s+(\d+)\b/i) || t.match(/\b(\d+)\s+(?:left|in stock|available|items?)\b/i);
+  return m ? Number(m[1]) : null;
+}
 async function probeQty(variantId, want) {
-  const key = new Request('https://vj-images.pages.dev/_qty/' + variantId + '/' + want);
+  const key = new Request('https://vj-images.pages.dev/_qty2/' + variantId + '/' + want);
   const cache = typeof caches !== 'undefined' ? caches.default : null;
   if (cache) { const hit = await cache.match(key); if (hit) { const j = await hit.json(); return j.n; } }
   let n = null;
@@ -252,15 +258,20 @@ async function probeQty(variantId, want) {
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; VisionsJersey-stock/1.0)' },
       body: JSON.stringify({ items: [{ id: variantId, quantity: want }] }),
     });
-    if (r.status === 422) {
-      const j = await r.json().catch(() => ({}));
-      const m = String((j && (j.description || j.message)) || '').match(/(\d+)/);
-      if (m) n = Number(m[1]);
-    } else if (r.ok) {
-      n = null;                           // success: at least `want` in stock — no exact count, nothing to hide
+    const text = await r.text();
+    LAST_PROBE = { variant: variantId, asked: want, status: r.status, reply: text.slice(0, 400) };
+    let j = {}; try { j = JSON.parse(text); } catch (e) {}
+    if (r.ok) {
+      // style 2: Shopify added what it had and said OK — the quantity it added is the count
+      const items = (j && j.items) || (j && j.id ? [j] : []);
+      const it = items.find((x) => String(x.variant_id || x.id) === String(variantId)) || items[0];
+      const q = it && typeof it.quantity === 'number' ? it.quantity : null;
+      n = q != null && q < want ? q : null;                // less than asked = that's all there is
+    } else if (r.status === 422) {
+      n = readCount((j && (j.description || j.message)) || text);   // style 1: "You can only add 12 …"
     }
-  } catch (e) { n = null; }
-  if (cache) { try { await cache.put(key, new Response(JSON.stringify({ n }), { headers: { 'Cache-Control': 'public, max-age=120' } })); } catch (e) {} }
+  } catch (e) { LAST_PROBE = { variant: variantId, asked: want, error: String(e) }; }
+  if (cache && n != null) { try { await cache.put(key, new Response(JSON.stringify({ n }), { headers: { 'Cache-Control': 'public, max-age=120' } })); } catch (e) {} }
   return n;
 }
 
@@ -296,7 +307,9 @@ export async function onRequestGet({ request }) {
       }
     }
     await Promise.all(probes);
-    return new Response(JSON.stringify({ ok: true, sizes, qty, at: Date.now() }), { headers: { ...head, 'Cache-Control': 'no-store' } });
+    const body = { ok: true, sizes, qty, at: Date.now() };
+    if (url.searchParams.get('debug') === '1') body.debug = LAST_PROBE;   // MS Retro's raw reply to the last probe
+    return new Response(JSON.stringify(body), { headers: { ...head, 'Cache-Control': 'no-store' } });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false }), { status: 502, headers: head });
   }
@@ -630,7 +643,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.15' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.16' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
