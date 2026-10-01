@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.19 (1 Oct 2026) · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -45,6 +45,12 @@ PHOTOS = os.path.join(SITE, 'p')
 SIZES = {'sm': (840, 80), 'lg': (1600, 82), 'mt': (1080, 85)}   # mt = JPEG for the Meta catalogue
 EXT = lambda size: 'jpg' if size == 'mt' else 'webp'
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh) VisionsJerseyPhotoBuilder/1'}
+
+
+try:
+    import prebook                      # shared pre-book / pre-order filter
+except Exception:                       # noqa: BLE001
+    prebook = None
 
 
 def say(msg):
@@ -103,6 +109,27 @@ def purge_leftovers(keep, feed_json=None):
             say('Supabase product list rewritten without the leftovers')
         except Exception as e:
             say(f'  (Supabase product list not rewritten: {type(e).__name__})')
+
+
+def purge_prebook(ids):
+    '''Delete pre-book / pre-order products from the plugin's own list
+    (shop_products), so they cannot come back on the next build. Guarded the
+    same way as purge_leftovers: never deletes more than 60% of the table.'''
+    ids = [str(i) for i in ids if str(i)]
+    if not ids or not SERVICE:
+        return
+    try:
+        rows = json.loads(get(f'{SUPA}/rest/v1/shop_products?select=id',
+                              {'apikey': SERVICE, 'Authorization': f'Bearer {SERVICE}'}))
+        if rows and len(ids) > 0.6 * len(rows):
+            say(f'  ! shop_products: {len(ids)} of {len(rows)} rows look like pre-book — too many, left alone (check it)')
+            return
+        for i in range(0, len(ids), 100):
+            supa_send('DELETE', '/rest/v1/shop_products?id=in.(' + ','.join(ids[i:i + 100]) + ')',
+                      extra={'Prefer': 'return=minimal'})
+        say(f'Deleted {len(ids)} pre-book product(s) from shop_products')
+    except Exception as e:   # noqa: BLE001
+        say(f'  (pre-book clean-up skipped: {type(e).__name__})')
 
 
 def post_json(url, body, headers=None):
@@ -435,6 +462,17 @@ def build(token):
             say(f'Removed {removed} product(s) that are not MS Retro (old leftovers)')
         # v1.13: and delete them at the source (only if it isn't most of the list)
         purge_leftovers(set(handles), feed_raw if removed and removed <= 0.6 * before else None)
+    # Pre-book / pre-order jerseys are not sold here. They are dropped from the
+    # list the shop and /join read, from the Meta catalogue built below, and
+    # from the plugin's own product list at the source.
+    if prebook is not None:
+        pb = [p for p in feed if prebook.row_match(p)]
+        if pb:
+            feed = [p for p in feed if not prebook.row_match(p)]
+            feed_raw = json.dumps(feed, ensure_ascii=False, separators=(',', ':')).encode()
+            say(f'Removed {len(pb)} pre-book product(s) from the shop list')
+            purge_prebook([p.get('id') for p in pb])
+
     os.makedirs(os.path.join(SITE, 'feeds'), exist_ok=True)
     with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'wb') as f:
         if details or handles:
