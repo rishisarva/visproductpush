@@ -1,19 +1,19 @@
 # MS Retro stock study
 
-Data: 332 size counts, 102 live products, 30 Sep 19:40 → 30 Sep 23:27 UTC (0.2 days).
+Data: 412 size counts, 106 live products, 30 Sep 19:40 → 01 Oct 00:32 UTC (0.2 days).
 
 ## Pieces left per size right now
 
 | Size | Products | Average left | Median | 0 left | 1–2 left | 3–5 left | 6–10 | 11+ |
 |---|---|---|---|---|---|---|---|---|
-| S | 41 | 0.5 | 0 | 36 | 1 | 3 | 1 | 0 |
-| M | 41 | 0.7 | 0 | 37 | 0 | 1 | 3 | 0 |
-| L | 52 | 0.6 | 0 | 47 | 1 | 2 | 1 | 1 |
-| XL | 52 | 0.5 | 0 | 47 | 1 | 1 | 3 | 0 |
+| S | 45 | 1.0 | 0 | 36 | 3 | 4 | 1 | 1 |
+| M | 47 | 1.7 | 0 | 37 | 1 | 4 | 3 | 2 |
+| L | 57 | 1.4 | 0 | 47 | 2 | 4 | 1 | 3 |
+| XL | 57 | 1.3 | 0 | 47 | 2 | 3 | 3 | 2 |
 | Xl | 5 | 0.0 | 0 | 5 | 0 | 0 | 0 | 0 |
-| XXL | 52 | 0.2 | 0 | 48 | 1 | 2 | 1 | 0 |
+| XXL | 58 | 1.1 | 0 | 48 | 3 | 4 | 1 | 2 |
 | Xxl | 4 | 0.0 | 0 | 4 | 0 | 0 | 0 | 0 |
-| 3XL | 23 | 0.0 | 0 | 23 | 0 | 0 | 0 | 0 |
+| 3XL | 25 | 1.6 | 0 | 23 | 0 | 0 | 0 | 2 |
 | 4XL | 1 | 0.0 | 0 | 1 | 0 | 0 | 0 | 0 |
 
 ## How fast sizes sell (pieces per product per day, from the counts going down)
@@ -34,4 +34,4 @@ Data: 332 size counts, 102 live products, 30 Sep 19:40 → 30 Sep 23:27 UTC (0.2
 
 No size has run out yet in this period, so there is nothing to learn from yet. Keep the current bar (2) and check back in a few days.
 
-_Updated 30 Sep 2026 23:27 UTC by stock_study.py — one snapshot per sync run._
+_Updated 01 Oct 2026 00:32 UTC by stock_study.py — one snapshot per sync run._
