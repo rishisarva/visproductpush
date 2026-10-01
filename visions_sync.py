@@ -47,6 +47,7 @@ except ImportError:
     sys.exit("Missing dependency. Run:  pip install requests")
 
 import sync_cloud
+import prebook
 
 
 # ==========================================================================
@@ -544,6 +545,8 @@ class Stats:
     unchanged: int = 0
     blocked_skipped: int = 0
     blocked_removed: int = 0
+    prebook_skipped: int = 0
+    prebook_removed: int = 0
     errors: int = 0
 
     def summary(self) -> str:
@@ -553,6 +556,7 @@ class Stats:
             f"-{self.sizes_retired} | relisted {self.relisted} | "
             f"drafted {self.drafted} | unchanged {self.unchanged} | "
             f"blocked {self.blocked_skipped + self.blocked_removed} | "
+            f"pre-book {self.prebook_skipped + self.prebook_removed} | "
             f"errors {self.errors}"
         )
 
@@ -868,6 +872,36 @@ class Syncer:
         existing_list = self.woo.list_products(SKU_PREFIX)
         log.info("Found %d previously synced products", len(existing_list))
 
+        # Pre-book / pre-order jerseys never belong on the site. If one is
+        # already live (listed before this rule existed, or renamed later at
+        # the supplier), take it down now and keep it out of the app.
+        prebook_hits = [p for p in existing_list if prebook.woo_match(p)]
+        if prebook_hits:
+            log.info("Found %d pre-book product(s) already on the site", len(prebook_hits))
+        for prod in prebook_hits:
+            hit = prebook.woo_match(prod)
+            name = prod.get("name", "")[:46]
+            try:
+                if not self.dry:
+                    if self.args.delete_missing:
+                        self.woo.call("DELETE", f"/products/{prod['id']}",
+                                      params={"force": True})
+                    else:
+                        self.woo.call("PUT", f"/products/{prod['id']}",
+                                      json={"status": "draft",
+                                            "catalog_visibility": "hidden",
+                                            "stock_status": "outofstock"})
+                    sku = prod.get("sku")
+                    if sku:
+                        sync_cloud.prebook_drop(sku)
+                log.info("PRE-BOOK remove  %s  (matched \"%s\")", name, hit)
+                self.stats.prebook_removed += 1
+            except Exception as exc:  # noqa: BLE001
+                log.error("Could not remove pre-book %s: %s", prod.get("sku"), exc)
+        if prebook_hits:
+            gone = {p.get("sku") for p in prebook_hits}
+            existing_list = [p for p in existing_list if p.get("sku") not in gone]
+
         # Products the owner removed in the app. These are deleted if present
         # and never created again, however often this runs.
         self.blocked = sync_cloud.blocked_skus()
@@ -986,6 +1020,21 @@ def load_supplier(args) -> list[SupplierProduct]:
             if p.option_name:
                 p.option_name = override
 
+    # Pre-book / pre-order listings are never sold on our site. Drop them here
+    # so nothing downstream (website, review list, app catalogue) ever sees them.
+    kept: list[SupplierProduct] = []
+    dropped = 0
+    for p in products:
+        hit = prebook.supplier_match(p)
+        if hit:
+            dropped += 1
+            log.info("PRE-BOOK skip  %s  (matched \"%s\")", p.name[:50], hit)
+            continue
+        kept.append(p)
+    if dropped:
+        log.info("Skipped %d pre-book product(s) from the supplier feed", dropped)
+    products = kept
+
     if args.skip_sold_out:
         before = len(products)
         products = [p for p in products if p.any_in_stock]
@@ -1090,6 +1139,8 @@ def cmd_sync(args) -> int:
         if getattr(args, "review", False):
             # products still waiting for review are not shown in the app
             live = [p for p in live if p.get("status") == "publish"]
+        # never mirror a pre-book listing into the app's catalogue
+        live = [p for p in live if not prebook.woo_match(p)]
         sync_cloud.snapshot_products(live, supplier, prefix=SKU_PREFIX)
         sync_cloud.report_run(
             stats,
