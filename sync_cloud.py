@@ -221,6 +221,17 @@ def review_add(product, product_id, supplier_url: str = "") -> None:
           extra_headers={"Prefer": "resolution=ignore-duplicates,return=minimal"})
 
 
+def prebook_drop(sku: str) -> None:
+    """Pre-book product: take it out of the app's catalogue and off the
+    Review list, so it cannot be seen or approved anywhere."""
+    if not ENABLED or not sku:
+        return
+    _call("DELETE", f"sync_products?sku=eq.{sku}",
+          extra_headers={"Prefer": "return=minimal"})
+    _call("DELETE", f"vj_review?sku=eq.{sku}",
+          extra_headers={"Prefer": "return=minimal"})
+
+
 def price_overrides() -> dict:
     """sku -> jersey type you picked in the Review tab, e.g. 'HS|CN|EMB'."""
     rows = _call("GET", "vj_review?select=sku,price_type") or []
