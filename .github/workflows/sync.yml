@@ -103,17 +103,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: python -u vj_images.py --ci
 
-      # Stock study: records the exact pieces left per size for every live MS Retro
-      # product (via the live checker) into vj_stock_log, and rewrites
-      # docs/stock-study.md — averages, sales per day, run-outs and a recommended
-      # "hide when ≤ N left" bar. Read it on GitHub: docs/stock-study.md.
-      - name: Stock study (MS Retro pieces per size)
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -u stock_study.py
-
       - name: Keep photos for the next run
         if: always()
         uses: actions/cache/save@v4
