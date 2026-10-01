@@ -1,6 +1,6 @@
 # MS Retro stock study
 
-Data: 568 size counts, 106 live products, 30 Sep 19:40 → 01 Oct 04:32 UTC (0.4 days).
+Data: 818 size counts, 107 live products, 30 Sep 19:40 → 01 Oct 05:31 UTC (0.4 days).
 
 ## Pieces left per size right now
 
@@ -8,8 +8,8 @@ Data: 568 size counts, 106 live products, 30 Sep 19:40 → 01 Oct 04:32 UTC (0.4
 |---|---|---|---|---|---|---|---|---|
 | S | 46 | 1.1 | 0 | 36 | 4 | 4 | 1 | 1 |
 | M | 48 | 1.7 | 0 | 37 | 2 | 4 | 3 | 2 |
-| L | 59 | 1.4 | 0 | 47 | 4 | 4 | 1 | 3 |
-| XL | 58 | 1.3 | 0 | 47 | 2 | 4 | 3 | 2 |
+| L | 60 | 1.4 | 0 | 48 | 4 | 4 | 1 | 3 |
+| XL | 59 | 1.3 | 0 | 48 | 2 | 4 | 3 | 2 |
 | Xl | 5 | 0.0 | 0 | 5 | 0 | 0 | 0 | 0 |
 | XXL | 61 | 1.1 | 0 | 48 | 5 | 5 | 1 | 2 |
 | Xxl | 4 | 0.0 | 0 | 4 | 0 | 0 | 0 | 0 |
@@ -34,4 +34,4 @@ Data: 568 size counts, 106 live products, 30 Sep 19:40 → 01 Oct 04:32 UTC (0.4
 
 No size has run out yet in this period, so there is nothing to learn from yet. Keep the current bar (2) and check back in a few days.
 
-_Updated 01 Oct 2026 04:32 UTC by stock_study.py — one snapshot per sync run._
+_Updated 01 Oct 2026 05:31 UTC by stock_study.py — one snapshot per sync run._
