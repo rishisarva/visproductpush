@@ -1,0 +1,47 @@
+name: Import Thayyil (hidden, for review)
+
+# Brings Thayyil Sports products in HIDDEN while MS Retro is still the shop's
+# supplier, so you can review them (Photos -> Review · Thayyil) before switching.
+# Nothing appears on the shop: the shop only shows the ACTIVE supplier
+# (supplier.txt). Run it a few times — 150 new products per run.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Thayyil Sports — new products, hidden, waiting for review
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: >
+          python -u visions_sync.py sync
+          --supplier "https://www.thayyilsports.in"
+          --collection ""
+          --prefix "TS-"
+          --review
+          --flat-cost 360
+          --margin 260
+          --max-new 150
+          --attribute-name "sizes"
+          --skip-sold-out
+          --workers 2
+          --read-pause 0.15
