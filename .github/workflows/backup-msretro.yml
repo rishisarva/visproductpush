@@ -1,0 +1,44 @@
+name: Backup MS Retro (photos + settings)
+
+# Saves everything needed to bring MS Retro back exactly as it is now: review rows
+# (approved/live, price types), your edited photo FILES, photo slots, settings and
+# the WooCommerce MS- product list. The zip is attached to a GitHub Release
+# (repo → Releases), kept forever. Run it before switching, and any time after
+# you've edited more photos.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Make the backup
+        id: b
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+        run: python -u backup_msretro.py
+      - name: Keep it as a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.b.outputs.tag }}" "${{ steps.b.outputs.zip }}" \
+            --title "MS Retro backup ${{ steps.b.outputs.tag }}" \
+            --notes "Restore: Actions → Restore MS Retro → Run workflow → paste this tag: ${{ steps.b.outputs.tag }}"

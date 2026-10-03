@@ -1,0 +1,38 @@
+name: Restore MS Retro (from a backup)
+
+# Puts an MS Retro backup back — only what is missing (rows, photo files, photo
+# slots). Running it when nothing was lost changes nothing. It does not switch
+# the shop: after it, set supplier.txt to MS and run "Sync products".
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Backup tag (Releases page), e.g. msretro-backup-2026-10-03-1200'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shop
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download the backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ inputs.tag }}" --pattern "*.zip" --dir .
+      - name: Restore
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -u restore_msretro.py msretro-backup-*.zip
