@@ -19,7 +19,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 90          # two suppliers now (Thayyil + MS Retro)
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +28,65 @@ jobs:
           python-version: '3.12'
 
       - run: pip install -r requirements.txt
+
+      # ACTIVE SUPPLIER — the file supplier.txt says which supplier the shop sells:
+      #   TS = Thayyil Sports,  MS = MS Retro.
+      # Only that supplier is synced; the other one's products are HIDDEN (never
+      # deleted — your edited photos stay). To switch back, change the file and
+      # run this workflow. Going back takes one run (about 30-40 minutes).
+      - name: Which supplier is active
+        run: |
+          A=$(tr -d " \r\n" < supplier.txt 2>/dev/null | tr a-z A-Z || echo MS)
+          [ "$A" = "TS" ] || A=MS
+          echo "ACTIVE=$A" >> "$GITHUB_ENV"
+          echo "Active supplier: $A"
+
+      # When the supplier changes, hide every product of the other one ONCE
+      # (state/active-supplier.txt remembers what was applied).
+      - name: Hide the other supplier's products (only after a switch)
+        continue-on-error: true
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          mkdir -p state
+          LAST=$(cat state/active-supplier.txt 2>/dev/null || echo MS)
+          if [ "$LAST" != "$ACTIVE" ]; then
+            if [ "$ACTIVE" = "TS" ]; then OTHER="MS-"; else OTHER="TS-"; fi
+            echo "Switched $LAST -> $ACTIVE: hiding every $OTHER product (nothing is deleted)"
+            python -u visions_sync.py hide-all --prefix "$OTHER" && echo "$ACTIVE" > state/active-supplier.txt
+          else
+            echo "No switch ($ACTIVE) — nothing to hide"
+          fi
+
+      # Thayyil Sports (label TS-). New products are created HIDDEN and wait in
+      # the dashboard's Photos -> Review · Thayyil tab; they go live after you
+      # approve them. Price = 360 (what Thayyil charges you) + 260 margin = 620.
+      - name: Thayyil Sports (new products wait for your approval)
+        if: env.ACTIVE == 'TS'
+        continue-on-error: true
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: >
+          python -u visions_sync.py sync
+          --supplier "https://www.thayyilsports.in"
+          --collection ""
+          --prefix "TS-"
+          --review
+          --flat-cost 360
+          --margin 260
+          --max-new 150
+          --attribute-name "sizes"
+          --skip-sold-out
+          --workers 2
+          --read-pause 0.15
 
       # MS Retro. Its products have their own label (MS-), so this step can
       # never touch the Thayyil products above. New products are created
@@ -41,6 +100,7 @@ jobs:
       # At most 150 new products per run (the first import finishes in about
       # 3 runs); stock and sizes of EVERY existing product update every run.
       - name: MS Retro (new products wait for your approval)
+        if: env.ACTIVE == 'MS'
         continue-on-error: true
         env:
           WC_URL: ${{ secrets.WC_URL }}
@@ -61,18 +121,6 @@ jobs:
           --skip-sold-out
           --workers 2
           --read-pause 0.15
-
-      # Photos for anything the sync just added or changed are copied into the
-      # product-images bucket as pre-sized WebP, so the storefront serves them
-      # from Supabase's CDN instead of resizing through a proxy on every visit.
-      # Finishes in seconds when nothing changed. continue-on-error keeps a
-      # photo hiccup from ever blocking the stock sync or the commit below.
-      - name: Mirror product photos
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python -u image_cdn.py
 
       # Photos, the product list and the Meta catalogue go to Cloudflare Pages
       # (vj-images.pages.dev), right after the stock is updated. Your edited
@@ -99,6 +147,7 @@ jobs:
           VJ_HOME: ${{ github.workspace }}/vj-home
           VJ_SUPA: ${{ secrets.SUPABASE_URL }}
           VJ_SERVICE_KEY: ${{ secrets.SUPABASE_KEY }}
+          VJ_ACTIVE: ${{ env.ACTIVE }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: python -u vj_images.py --ci
