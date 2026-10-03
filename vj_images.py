@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.21 (3 Oct 2026) · two suppliers: shows only the ACTIVE one (VJ_ACTIVE = TS or MS, from supplier.txt); Thayyil products get live stock (checker &s=ts); the other supplier is never treated as leftovers · v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -32,6 +32,9 @@ APIKEY = SERVICE or ANON
 PROJECT = os.environ.get('VJ_PROJECT', 'vj-images')
 PUBLIC = os.environ.get('VJ_PUBLIC', f'https://{PROJECT}.pages.dev')   # where the photos are served from
 MS_STORE = os.environ.get('VJ_MS_STORE', 'https://msretro.com')          # for product details
+ACTIVE = (os.environ.get('VJ_ACTIVE') or 'MS').strip().upper()           # v1.21: which supplier the shop sells
+if ACTIVE not in ('MS', 'TS'):
+    ACTIVE = 'MS'
 HOME = os.path.expanduser(os.environ.get('VJ_HOME', '~/vj-images'))
 SITE, CACHE = os.path.join(HOME, 'site'), os.path.join(HOME, 'cache')
 SESSION = os.path.join(HOME, 'session.json')      # remembered dashboard sign-in (this Mac only)
@@ -276,6 +279,7 @@ function readCount(text) {                  // the real count in Shopify's messa
 }
 const COOL = new Request('https://vj-images.pages.dev/_qty2/cooldown');   // set for 5 min after a 429
 let LIMITED = false;
+let STORE = 'https://msretro.com';          // v1.21: &s=ts → Thayyil Sports
 async function probeQty(variantId, want) {
   const key = new Request('https://vj-images.pages.dev/_qty2/' + variantId + '/' + want);
   const cache = typeof caches !== 'undefined' ? caches.default : null;
@@ -284,7 +288,7 @@ async function probeQty(variantId, want) {
   let remember = 0;                                                         // seconds to reuse this answer
   let n = null;
   try {
-    const r = await fetch('https://msretro.com/cart/add.js', {
+    const r = await fetch(STORE + '/cart/add.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; VisionsJersey-stock/1.0)' },
       body: JSON.stringify({ items: [{ id: variantId, quantity: want }] }),
@@ -314,12 +318,13 @@ async function probeQty(variantId, want) {
 export async function onRequestGet({ request }) {
   const url = new URL(request.url);
   const h = (url.searchParams.get('h') || '').trim().toLowerCase();
+  STORE = url.searchParams.get('s') === 'ts' ? 'https://www.thayyilsports.in' : 'https://msretro.com';
   const head = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json; charset=utf-8' };
   if (!/^[a-z0-9][a-z0-9_-]{0,250}$/.test(h)) {
     return new Response(JSON.stringify({ ok: false, error: 'bad handle' }), { status: 400, headers: head });
   }
   try {
-    const r = await fetch('https://msretro.com/products/' + h + '.js', {
+    const r = await fetch(STORE + '/products/' + h + '.js', {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VisionsJersey-stock/1.0)', 'Accept': 'application/json' },
       cf: { cacheTtl: 15, cacheEverything: true },
     });
@@ -429,39 +434,54 @@ def ms_details(token):
         return {}
 
 
-def ms_handles(token):
-    '''{shop product id: MS Retro handle} for MS Retro products (label MS-).'''
+def supplier_handles(token):
+    '''v1.21: {shop product id: (supplier, handle)} for MS Retro (MS-) and Thayyil (TS-).'''
     try:
         rows = json.loads(get(f'{SUPA}/rest/v1/vj_review?select=sku,product_id',
                               {'apikey': APIKEY, 'Authorization': f'Bearer {token}'}))
-        return {str(r['product_id']): r['sku'][3:] for r in rows
-                if (r.get('sku') or '').startswith('MS-') and r.get('product_id')}
+        out = {}
+        for r in rows:
+            sku = r.get('sku') or ''
+            if r.get('product_id') and sku[:3] in ('MS-', 'TS-'):
+                out[str(r['product_id'])] = (sku[:2], sku[3:])
+        return out
     except Exception as e:
-        say(f'  (MS Retro product links skipped: {type(e).__name__})')
+        say(f'  (supplier product links skipped: {type(e).__name__})')
         return {}
+
+
+def ms_handles(token):
+    '''{shop product id: MS Retro handle} (kept for anything that still asks).'''
+    return {pid: h for pid, (sup, h) in supplier_handles(token).items() if sup == 'MS'}
 
 
 def build(token):
     feed_raw = get(f'{SUPA}/storage/v1/object/public/feeds/shop-products.json')
     feed = json.loads(feed_raw)
+    feed_raw_all = feed_raw                # v1.21: the plugin's full list (both suppliers)
     # v1.7: publish a copy of the product list on Cloudflare too. The shop and
     # /join read it from there first (Supabase only as a fallback).
     # v1.9: MS Retro products get a "details" list (from their description),
     # shown above the sizes on the product page. Everything else is unchanged.
     details = ms_details(token)
-    handles = ms_handles(token)          # v1.11: lets the product page ask MS Retro for live stock
-    if handles:
-        # v1.12: only MS Retro products are real products now. Anything else in the
-        # plugin's list is a removed leftover (old Thayyil) — drop it everywhere
-        # (product list, photos, Meta catalogue) so nobody can see or order it.
+    sup = supplier_handles(token)        # v1.21: MS Retro AND Thayyil products
+    handles = {pid: h for pid, (s_, h) in sup.items() if s_ == ACTIVE}   # the supplier the shop sells now
+    say(f'Active supplier: {"Thayyil Sports" if ACTIVE == "TS" else "MS Retro"} ({len(handles)} linked product(s))')
+    if sup:
+        # Only the ACTIVE supplier's products are shown (product list, photos, Meta
+        # catalogue). The other supplier's products are simply left out — never
+        # deleted — so switching back brings them straight back.
         before = len(feed)
         feed = [p for p in feed if str(p.get('id', '')) in handles]
         feed_raw = json.dumps(feed, ensure_ascii=False, separators=(',', ':')).encode()
         removed = before - len(feed)
         if removed:
-            say(f'Removed {removed} product(s) that are not MS Retro (old leftovers)')
-        # v1.13: and delete them at the source (only if it isn't most of the list)
-        purge_leftovers(set(handles), feed_raw if removed and removed <= 0.6 * before else None)
+            say(f'Left out {removed} product(s) that are not from the active supplier')
+        # Only true leftovers (in NEITHER supplier) are cleaned at the source.
+        allp = json.loads(feed_raw_all)
+        stray = [p for p in allp if str(p.get('id', '')) not in sup]
+        keep_all = json.dumps([p for p in allp if str(p.get('id', '')) in sup], ensure_ascii=False, separators=(',', ':')).encode()
+        purge_leftovers(set(sup), keep_all if stray and len(stray) <= 0.6 * len(allp) else None)
     # Pre-book / pre-order jerseys are not sold here. They are dropped from the
     # list the shop and /join read, from the Meta catalogue built below, and
     # from the plugin's own product list at the source.
@@ -483,10 +503,10 @@ def build(token):
                     p['details'] = d
                 h = handles.get(str(p.get('id', '')))
                 if h:
-                    p['ms'] = h
+                    p['ts' if ACTIVE == 'TS' else 'ms'] = h       # the live stock check knows which store to ask
             f.write(json.dumps(copy, ensure_ascii=False, separators=(',', ':')).encode())
             say(f'Product details added for {sum(1 for p in copy if p.get("details"))} MS Retro product(s)')
-            say(f'Live stock check ready for {sum(1 for p in copy if p.get("ms"))} MS Retro product(s)')
+            say(f'Live stock check ready for {sum(1 for p in copy if p.get("ms") or p.get("ts"))} product(s)')
         else:
             f.write(feed_raw)
     say(f'Products in the shop: {len(feed)}')
@@ -696,7 +716,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.19' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.21' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
