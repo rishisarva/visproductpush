@@ -1117,6 +1117,17 @@ def cmd_sync(args) -> int:
         supplier = supplier[:args.limit]
         log.info("Limited to first %d products", len(supplier))
 
+    if getattr(args, "flat_cost", 0):
+        # Thayyil: every jersey costs us the same (--flat-cost) + the margin.
+        for p in supplier:
+            for v in p.variants:
+                v.price = sell_price(args.flat_cost, args.margin, args.round_to)
+            p.price_type = "FLAT"
+            p.price_auto = "FLAT"
+            p.price_note = f"₹{args.flat_cost:.0f} + ₹{args.margin:.0f}"
+        log.info("Flat price applied: %s cost + %s margin = %s per jersey", money(args.flat_cost),
+                 money(args.margin), money(sell_price(args.flat_cost, args.margin, args.round_to)))
+
     if getattr(args, "price_table", "") == "msretro":
         apply_msretro_prices(supplier, args.margin, args.round_to, sync_cloud.price_overrides())
         for p in supplier:                       # clean titles AFTER the type was read from them
@@ -1357,6 +1368,8 @@ def build_parser() -> argparse.ArgumentParser:
                              "they are approved in the dashboard's Photos -> Review tab")
         sp.add_argument("--max-new", type=int, default=0,
                         help="Create at most N new products per run (0 = no limit)")
+        sp.add_argument("--flat-cost", type=float, default=0.0,
+                        help="Same supplier cost for every jersey (Thayyil): price = this + --margin")
         sp.add_argument("--price-table", default="", choices=["", "msretro"],
                         help="Price = the supplier's wholesale list price for the jersey "
                              "type (read from the title) + margin, not their website price")
