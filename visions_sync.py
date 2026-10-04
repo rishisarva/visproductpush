@@ -919,6 +919,16 @@ class Syncer:
                     refreshed += 1
             if refreshed:
                 log.info("Review list: price type re-checked for %d product(s)", refreshed)
+            if sync_cloud.has_title_column():       # keep the supplier's original title for Copy details
+                titled = 0
+                for p in supplier:
+                    row = self.review.get(p.sku)
+                    raw = (getattr(p, "raw_title", "") or "")[:250]
+                    if row and raw and row.get("supplier_title") != raw:
+                        sync_cloud.review_update(p.sku, {"supplier_title": raw})
+                        titled += 1
+                if titled:
+                    log.info("Review list: supplier's original title saved for %d product(s)", titled)
             rejected = {k for k, r in self.review.items() if r.get("status") == "rejected"}
             if rejected:
                 log.info("Rejected in the dashboard: %d product(s)", len(rejected))
@@ -1116,6 +1126,9 @@ def cmd_sync(args) -> int:
     if args.limit:
         supplier = supplier[:args.limit]
         log.info("Limited to first %d products", len(supplier))
+
+    for p in supplier:                       # the supplier's own title, before any cleaning
+        p.raw_title = p.name
 
     if getattr(args, "flat_cost", 0):
         # Thayyil: every jersey costs us the same (--flat-cost) + the margin.
