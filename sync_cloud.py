@@ -188,9 +188,24 @@ def forget_products(prefix: str) -> int:
     return len(gone)
 
 
+_TITLE_COL = None
+
+
+def has_title_column() -> bool:
+    """True when vj_review has the supplier_title column (run the SQL once to add it)."""
+    global _TITLE_COL
+    if _TITLE_COL is None:
+        _TITLE_COL = ENABLED and _call("GET", "vj_review?select=supplier_title&limit=1") is not None
+    return bool(_TITLE_COL)
+
+
 def review_rows() -> dict:
     """sku -> row, for the products of every review-mode supplier."""
-    rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note") or []
+    rows = []
+    if has_title_column():
+        rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note,supplier_title") or []
+    if not rows:
+        rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note") or []
     if not rows:   # older table without the price columns: fall back to the basics
         rows = _call("GET", "vj_review?select=sku,status,product_id") or []
     return {r["sku"]: r for r in rows if r.get("sku")}
@@ -217,6 +232,8 @@ def review_add(product, product_id, supplier_url: str = "") -> None:
         "price_note": getattr(product, "price_note", "") or "",
         "status": "pending",
     }
+    if has_title_column():                                   # the supplier's own title, for Copy details
+        row["supplier_title"] = (getattr(product, "raw_title", "") or product.name or "")[:250]
     _call("POST", "vj_review?on_conflict=sku", json=[row],
           extra_headers={"Prefer": "resolution=ignore-duplicates,return=minimal"})
 
