@@ -203,9 +203,9 @@ def review_rows() -> dict:
     """sku -> row, for the products of every review-mode supplier."""
     rows = []
     if has_title_column():
-        rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note,supplier_title") or []
+        rows = _call("GET", "vj_review?select=sku,status,product_id,name,price_type,price_auto,price_note,supplier_title") or []
     if not rows:
-        rows = _call("GET", "vj_review?select=sku,status,product_id,price_auto,price_note") or []
+        rows = _call("GET", "vj_review?select=sku,status,product_id,name,price_type,price_auto,price_note") or []
     if not rows:   # older table without the price columns: fall back to the basics
         rows = _call("GET", "vj_review?select=sku,status,product_id") or []
     return {r["sku"]: r for r in rows if r.get("sku")}
@@ -270,6 +270,26 @@ def review_mark(sku: str, status: str) -> None:
     _call("PATCH", f"vj_review?sku=eq.{sku}",
           json={"status": status, "updated_at": datetime.now(timezone.utc).isoformat()},
           extra_headers={"Prefer": "return=minimal"})
+
+
+def copy_shots(src_product_id, dst_product_id, slug: str = "", name: str = "") -> bool:
+    """Give a new product the edited photos (and sleeve/fit) of an earlier
+    product with the same title — the dashboard's 'Same jersey → use my
+    photos' button, done automatically by the sync."""
+    if not ENABLED:
+        return False
+    rows = _call("GET", f"vj_shots?product_id=eq.{src_product_id}&select=*") or []
+    if not rows:
+        return False
+    src = rows[0]
+    from datetime import datetime, timezone
+    row = {k: v for k, v in src.items() if k not in ("product_id", "slug", "name", "updated_at")}
+    row.update({"product_id": str(dst_product_id), "slug": slug or src.get("slug") or "",
+                "name": (name or src.get("name") or "")[:200],
+                "updated_at": datetime.now(timezone.utc).isoformat()})
+    res = _call("POST", "vj_shots?on_conflict=product_id", json=[row],
+                extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+    return res is not None
 
 
 def edited_images(product_id) -> list:
