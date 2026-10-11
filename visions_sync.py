@@ -570,6 +570,7 @@ class Syncer:
         self.review_mode = bool(getattr(args, "review", False))
         self.review: dict = {}            # sku -> row from the dashboard's Review list
         self._went_live: list = []        # approved products published this run
+        self._existing_all: list = []     # every product with this prefix in WooCommerce (drafts too)
 
     # ---- helpers --------------------------------------------------------
 
@@ -688,8 +689,72 @@ class Syncer:
 
         if self.review_mode:
             sync_cloud.review_add(product, pid, self.args.supplier)
-            log.info("   waiting for review in the dashboard")
+            if not self._auto_from_twin(product, pid):
+                log.info("   waiting for review in the dashboard")
         self.stats.created += 1
+
+    # ---- same title as a jersey you already did → no review ------------
+    #
+    # Suppliers re-list the same jersey under a new link now and then. To the
+    # sync that is a new product, so it used to land on the Review list again
+    # and you had to redo (or re-pick) its photos. Now: if an earlier product
+    # has EXACTLY the same title and your edited photos, those photos are
+    # copied over and the product goes live by itself (when its price type is
+    # known), or is pre-filled with the photos so only Approve is left.
+
+    @staticmethod
+    def _title_key(name) -> str:
+        return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+
+    def _photo_twin(self, product, pid):
+        key = self._title_key(product.name)
+        if not key:
+            return None
+        cands: list = []
+        for p in self._existing_all:                               # WooCommerce, drafts included
+            if str(p.get("id")) != str(pid) and self._title_key(p.get("name")) == key:
+                cands.append(p["id"])
+        for sku, row in self.review.items():                       # earlier review rows (name + product id)
+            if sku != product.sku and self._title_key(row.get("name")) == key and row.get("product_id") \
+                    and str(row["product_id"]) != str(pid):
+                cands.append(row["product_id"])
+        seen: set = set()
+        for cid in cands:
+            if str(cid) in seen:
+                continue
+            seen.add(str(cid))
+            imgs = sync_cloud.edited_images(cid)
+            if imgs:
+                return cid, imgs
+        return None
+
+    def _auto_from_twin(self, product, pid) -> bool:
+        if not self.review_mode or self.dry:
+            return False
+        twin = self._photo_twin(product, pid)
+        if not twin:
+            return False
+        cid, imgs = twin
+        if not sync_cloud.copy_shots(cid, pid, slug=product.sku, name=product.name):
+            return False
+        ptype = getattr(product, "price_type", "") or ""
+        if not ptype:                                              # type unknown from the title: reuse the twin's pick
+            old = next((r for r in self.review.values() if str(r.get("product_id")) == str(cid)), {})
+            if old.get("price_type"):
+                sync_cloud.review_update(product.sku, {"price_type": old["price_type"]})
+                sync_cloud.review_mark(product.sku, "approved")    # priced + published on the next run
+                log.info("SAME    %s — photos copied from #%s, type %s reused; goes live next run",
+                         product.name[:40], cid, old["price_type"])
+                return True
+            log.info("SAME    %s — photos copied from #%s; pick its jersey type in the dashboard and Approve",
+                     product.name[:40], cid)
+            return True
+        self.woo.call("PUT", f"/products/{pid}", json={"status": "publish", "images": [{"src": u} for u in imgs]})
+        self._went_live.append(product.sku)
+        self.stats.relisted += 1
+        log.info("SAME    %s — photos copied from #%s, LIVE (same title as a jersey you already did)",
+                 product.name[:40], cid)
+        return True
 
     # ---- update ---------------------------------------------------------
 
@@ -725,6 +790,7 @@ class Syncer:
                 log.info("PUBLISH %s (approved in the dashboard)", product.name[:44])
             elif not row:
                 sync_cloud.review_add(product, pid, self.args.supplier)
+                self._auto_from_twin(product, pid)
             elif status == "gone":
                 sync_cloud.review_mark(product.sku, "pending")
 
@@ -958,6 +1024,7 @@ class Syncer:
             pause=getattr(self.args, 'read_pause', 0.25))
         by_sku = {p["sku"]: p for p in existing_list}
         supplier_by_sku = {p.sku: p for p in supplier}
+        self._existing_all = existing_list
 
         new_count = 0
         for i, product in enumerate(supplier, start=1):
