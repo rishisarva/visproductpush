@@ -575,6 +575,7 @@ def build(token):
     meta_catalogue(feed, photo_map, keep={str(p.get('id', '')) for p in feed} if handles else None)
     with open(os.path.join(SITE, '_headers'), 'w') as f:
         f.write('/p/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'
+                '/r/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'   # v1.22 review photos
                 '/map.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n'
                 '/feeds/*\n  Cache-Control: public, max-age=120\n  Access-Control-Allow-Origin: *\n')
     with open(os.path.join(SITE, 'index.html'), 'w') as f:
@@ -646,7 +647,7 @@ def meta_catalogue(feed, photo_map, keep=None):
 def fingerprint():
     files = sorted(os.listdir(PHOTOS))
     feed = b''
-    for name in ('shop-products.json', 'meta-products.csv'):
+    for name in ('shop-products.json', 'meta-products.csv', 'reviews.json'):   # v1.22: customer reviews too
         fp = os.path.join(SITE, 'feeds', name)
         feed += open(fp, 'rb').read() if os.path.exists(fp) else b''
     feed += STOCK_FUNCTION.encode()      # a new checker version also counts as "something new"
@@ -716,7 +717,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.21' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.22' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
