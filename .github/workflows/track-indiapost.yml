@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tracking:
-        description: 'Test one tracking number (leave empty to run the normal update)'
+        description: 'LEAVE EMPTY for the normal run (it also runs by itself every 30 min). Type a tracking number only to test one parcel.'
         required: false
         default: ''
 
