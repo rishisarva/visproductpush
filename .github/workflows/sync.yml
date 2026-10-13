@@ -141,6 +141,17 @@ jobs:
           key: vj-photos-${{ github.run_id }}
           restore-keys: vj-photos-
 
+      # Customer reviews you approved in the dashboard: photos are kept in this
+      # repo (reviews/) and served from Cloudflare with the product photos;
+      # the copies in Supabase are deleted (keeps it light).
+      - name: Customer reviews (approved → repo + Cloudflare)
+        continue-on-error: true
+        env:
+          VJ_HOME: ${{ github.workspace }}/vj-home
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -u reviews_sync.py
+
       - name: Photos, product list and Meta catalogue to Cloudflare
         continue-on-error: true
         env:
@@ -165,7 +176,7 @@ jobs:
         run: |
           git config user.name  "sync bot"
           git config user.email "actions@github.com"
-          git add -A state docs
+          git add -A state docs reviews
           git diff --staged --quiet || git commit -m "sync $(date -u '+%Y-%m-%d %H:%M')"
           git pull --rebase --autostash || true
           git push
