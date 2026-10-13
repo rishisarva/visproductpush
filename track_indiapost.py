@@ -40,9 +40,13 @@ IP = "https://www.indiapost.gov.in"
 # The page the website uses and the server-action id it sends. Both can change
 # when India Post redeploys; find_action() rediscovers them from the site's own
 # JavaScript and the result is cached in vj_prefs (key "indiapost_action").
-KNOWN = {"path": "/track-result/article-tracking/U2FsdGVkX1%2Fs4MUbcvdCbgb%2FplQunYwb2VGSBAhMiHMAfnJ8QlHTOBGP0WQ7CZSQ",
-         "action": "7f04c72a185756a3940501a7996e6b83e2a72a488e"}
-PATHS = [KNOWN["path"], "/track-consignment", "/"]
+KNOWN = {"path": "/", "action": "7f04c72a185756a3940501a7996e6b83e2a72a488e", "key": "ARTICLE_TRACKING_URL"}
+PATHS = ["/", "/track-consignment", "/track-result/article-tracking/U2FsdGVkX1%2Fs4MUbcvdCbgb%2FplQunYwb2VGSBAhMiHMAfnJ8QlHTOBGP0WQ7CZSQ"]
+# The action is called as [<which URL>, "GET", null, <number>]; <which URL> is a
+# key the server maps to the real tracking API. Keys we try, best first; the
+# site's own JavaScript is searched for more when none of these work.
+KEYS = ["ARTICLE_TRACKING_URL", "TRACK_CONSIGNMENT_URL", "CONSIGNMENT_TRACKING_URL", "TRACKING_URL", "TRACK_ARTICLE_URL",
+        "ARTICLE_TRACK_URL", "TRACK_URL", "CONSIGNMENT_URL", "ARTICLE_URL", "SPEED_POST_TRACKING_URL"]
 UA = ("Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 "
       "(KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1")
 PACE = 2.0            # seconds between two India Post requests — be a polite guest
@@ -93,8 +97,8 @@ def pref_set(key, value):
 # India Post
 # ──────────────────────────────────────────────────────────────
 
-def _post(path, action, number):
-    r = S.post(IP + path, timeout=25, data=f'["ARTICLE_TRACKING_URL","GET",null,"{number}"]',
+def _post(path, action, number, key="ARTICLE_TRACKING_URL"):
+    r = S.post(IP + path, timeout=25, data=f'["{key}","GET",null,"{number}"]',
                headers={"Content-Type": "text/plain;charset=UTF-8", "Accept": "text/x-component",
                         "Next-Action": action, "Origin": IP, "Referer": IP + path})
     return r.status_code, r.text
@@ -116,6 +120,8 @@ def _looks_right(obj, number=""):
     """A real answer: {"data": …} that is not empty and mentions the number (or scan words)."""
     if not (isinstance(obj, dict) and "data" in obj and obj["data"] not in (None, "", [], {})):
         return False
+    if obj.get("error"):
+        return False
     blob = json.dumps(obj)[:20000].lower()
     return (number and number.lower() in blob) or "tracking" in blob or "event" in blob or "office" in blob
 
@@ -123,15 +129,21 @@ def _looks_right(obj, number=""):
 DEBUG = []   # what India Post answered, for the test report
 
 
-def _note(path, action, code, text):
-    DEBUG.append(f"{code} · action {action[:8]}… · {path[:48]}\n{text[:1200]}")
+def _note(path, action, code, text, key=""):
+    DEBUG.append(f"{code} · action {action[:8]}… · key {key} · {path[:40]}\n{text[:700]}")
 
 
-def find_action(sample):
-    """Rediscover the server-action id from the website's own JavaScript."""
-    print("   looking for India Post's current tracking action…")
-    cands, chunks = [], []
-    for page in ("/track-consignment", "/"):
+def site_js():
+    """The site's JavaScript files (home page + any page whose link mentions tracking)."""
+    pages, chunks, js = ["/"], [], []
+    try:
+        html = S.get(IP + "/", timeout=25).text
+        for href in re.findall(r'href="(/[^"]*track[^"]*)"', html, re.I):
+            if href not in pages:
+                pages.append(href)
+    except requests.RequestException:
+        html = ""
+    for page in pages[:6]:
         try:
             html = S.get(IP + page, timeout=25).text
         except requests.RequestException:
@@ -142,51 +154,83 @@ def find_action(sample):
                 chunks.append(src)
     for src in chunks[:60]:
         try:
-            js = S.get(src, timeout=25).text
+            js.append((src, S.get(src, timeout=25).text))
         except requests.RequestException:
-            continue
-        ids = re.findall(r'["\']([0-9a-f]{40,42})["\']', js)
-        hot = "ARTICLE_TRACKING" in js or "track" in src.lower()
-        for i in ids:
-            if i not in cands:
-                cands.insert(0, i) if hot else cands.append(i)
-    print(f"   {len(chunks)} scripts, {len(cands)} candidate ids")
-    for action in cands[:80]:
-        for path in PATHS:
+            pass
+    DEBUG.append(f"site: pages {pages} · {len(js)} scripts read")
+    return js
+
+
+def find_keys(js):
+    """Strings like SOMETHING_URL in the site's code, tracking-related ones first."""
+    keys = []
+    for src, code in js:
+        for k in re.findall(r'["\']([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)["\']', code):
+            if k not in keys and (k.endswith("_URL") or re.search(r"TRACK|CONSIGN|ARTICLE", k)):
+                keys.append(k)
+    keys.sort(key=lambda k: (not re.search(r"TRACK|CONSIGN|ARTICLE", k), len(k)))
+    DEBUG.append("keys in site code: " + ", ".join(keys[:40]))
+    return keys
+
+
+def find_action(sample, cfg):
+    """Rediscover the URL key and/or the server-action id from the website's own JavaScript."""
+    print("   looking for India Post's current tracking action…")
+    js = site_js()
+    keys = [k for k in find_keys(js) if k not in KEYS] 
+    actions = [cfg["action"]] + ([KNOWN["action"]] if cfg["action"] != KNOWN["action"] else [])
+    for src, code in js:
+        hot = "_URL" in code or "track" in src.lower()
+        for i in re.findall(r'["\']([0-9a-f]{40,42})["\']', code):
+            if i not in actions:
+                actions.insert(1, i) if hot else actions.append(i)
+    print(f"   {len(js)} scripts, {len(keys)} new keys, {len(actions)} action ids")
+    tried = 0
+    for action in actions[:60]:
+        for key in (KEYS + keys)[:40]:
             try:
-                code, text = _post(path, action, sample)
+                code, text = _post("/", action, sample, key)
             except requests.RequestException:
                 continue
-            if code == 200 and _looks_right(_extract(text), sample):
-                print(f"   found: action {action[:10]}… via {path[:40]}")
-                return {"path": path, "action": action}
-            time.sleep(0.4)
-    DEBUG.append(f"discovery: {len(chunks)} scripts, {len(cands)} ids tried, none answered")
+            tried += 1
+            obj = _extract(text)
+            if _looks_right(obj, sample):
+                print(f"   found: action {action[:10]}… key {key}")
+                return {"path": "/", "action": action, "key": key}
+            if obj is None:
+                break        # this action id doesn't exist at all — no point trying keys with it
+            time.sleep(0.3)
+    DEBUG.append(f"discovery: {tried} combinations tried, none answered")
     return None
 
 
 def fetch(number, cfg, allow_discover=True):
     """→ (data dict or None, cfg, note)"""
+    cfg = {**KNOWN, **{k: v for k, v in (cfg or {}).items() if v}}
     code, empty = 0, False
-    actions = [cfg["action"]] + ([] if cfg["action"] == KNOWN["action"] else [KNOWN["action"]])
-    for action in actions:
+    keys = [cfg["key"]] + [k for k in KEYS if k != cfg["key"]]
+    for key in keys:
         for path in [cfg["path"]] + [p for p in PATHS if p != cfg["path"]]:
             try:
-                code, text = _post(path, action, number)
+                code, text = _post(path, cfg["action"], number, key)
             except requests.RequestException as exc:
                 return None, cfg, f"network: {exc}"
-            _note(path, action, code, text)
+            _note(path, cfg["action"], code, text, key)
             obj = _extract(text)
-            if code == 200 and _looks_right(obj, number):
-                if path != cfg["path"] or action != cfg["action"]:
-                    cfg = {"path": path, "action": action}
+            if _looks_right(obj, number):
+                if path != cfg["path"] or key != cfg["key"]:
+                    cfg = {"path": path, "action": cfg["action"], "key": key}
                     pref_set("indiapost_action", cfg)
                 return obj["data"], cfg, ""
-            if code == 200 and isinstance(obj, dict) and obj.get("data") in (None, "", [], {}):
-                empty = True          # answered, but nothing for this number
+            if isinstance(obj, dict) and not obj.get("error") and obj.get("data") in (None, "", [], {}):
+                empty = True          # answered properly, but nothing for this number
+            if obj is None:
+                break                 # this page doesn't run the action; next key won't help on it either
             time.sleep(0.5)
-    if allow_discover:
-        new = find_action(number)
+        if empty:
+            break
+    if allow_discover and not empty:
+        new = find_action(number, cfg)
         if new:
             pref_set("indiapost_action", new)
             return fetch(number, new, allow_discover=False)
@@ -393,7 +437,8 @@ def test(number):
     lines = [f"# India Post test · {number}", ""]
     if data is None:
         lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet.",
-                  "", "## What India Post answered (for the developer)", "```"] + [d.replace("`", "'") for d in DEBUG[:12]] + ["```"]
+                  "", "## What India Post answered (for the developer)", "```"] \
+                 + [d.replace("`", "'") for d in DEBUG[:4]] + [d for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery"))] + ["```"]
     else:
         s = summarise(number, data)
         lines += [f"**Works.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
