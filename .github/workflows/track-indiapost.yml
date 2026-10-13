@@ -1,0 +1,45 @@
+name: Track parcels (India Post)
+
+# Every 30 minutes: asks India Post about every parcel shipped in the last 45
+# days and updates the dashboard (Orders → Shipped), the customer's order page
+# and — through the plugin — emails the customer (out for delivery / attempt
+# failed / delivered / returned) and your Telegram (delivered, RTO).
+#
+# Test one number: Actions → "Track parcels (India Post)" → Run workflow →
+# type the tracking number (e.g. CL123456789IN) → open the run → the result is
+# written at the top of the page.
+
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+    inputs:
+      tracking:
+        description: 'Test one tracking number (leave empty to run the normal update)'
+        required: false
+        default: ''
+
+concurrency:
+  group: track
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Track
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          if [ -n "${{ github.event.inputs.tracking }}" ]; then
+            python -u track_indiapost.py --test "${{ github.event.inputs.tracking }}"
+          else
+            python -u track_indiapost.py
+          fi
