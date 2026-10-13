@@ -122,8 +122,9 @@ def _looks_right(obj, number=""):
         return False
     if obj.get("error"):
         return False
-    blob = json.dumps(obj)[:20000].lower()
-    return (number and number.lower() in blob) or "tracking" in blob or "event" in blob or "office" in blob
+    # Real scans: at least one event with text (an empty/money-order/other
+    # endpoint answers with nulls), or the number itself in the reply.
+    return bool(events_of(obj["data"])) or (number and number.lower() in json.dumps(obj).lower())
 
 
 DEBUG = []   # what India Post answered, for the test report
@@ -168,7 +169,13 @@ def find_keys(js):
         for k in re.findall(r'["\']([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)["\']', code):
             if k not in keys and (k.endswith("_URL") or re.search(r"TRACK|CONSIGN|ARTICLE", k)):
                 keys.append(k)
-    keys.sort(key=lambda k: (not re.search(r"TRACK|CONSIGN|ARTICLE", k), len(k)))
+    def score(k):
+        sc = 0
+        if re.search(r"ARTICLE|CONSIGN", k): sc -= 4
+        if "TRACK" in k: sc -= 2
+        if re.search(r"MONEY|PINCODE|POSTOFFICE|POST_OFFICE|BRANCH|COMPLAINT|OTP|LOGIN|PAYMENT|BANK|INSUR|PHILAT|LOGISTIC|PARCEL_BOOK|BOOKING", k): sc += 5
+        return (sc, len(k))
+    keys.sort(key=score)
     DEBUG.append("keys in site code: " + ", ".join(keys[:40]))
     return keys
 
@@ -222,8 +229,10 @@ def fetch(number, cfg, allow_discover=True):
                     cfg = {"path": path, "action": cfg["action"], "key": key}
                     pref_set("indiapost_action", cfg)
                 return obj["data"], cfg, ""
-            if isinstance(obj, dict) and not obj.get("error") and obj.get("data") in (None, "", [], {}):
-                empty = True          # answered properly, but nothing for this number
+            if isinstance(obj, dict) and not obj.get("error") and (obj.get("data") in (None, "", [], {})
+                    or (key == cfg["key"] and isinstance(obj["data"], dict) and "tracking_details" in obj["data"])):
+                empty = True          # answered properly (the shape we know), but no scans for this number yet
+                break
             if obj is None:
                 break                 # this page doesn't run the action; next key won't help on it either
             time.sleep(0.5)
@@ -235,7 +244,7 @@ def fetch(number, cfg, allow_discover=True):
             pref_set("indiapost_action", new)
             return fetch(number, new, allow_discover=False)
     if empty:
-        return None, cfg, "India Post answered but had no details for this number"
+        return None, cfg, "India Post answered but has no scans for this number yet"
     return None, cfg, f"India Post did not answer the way the website expects (last HTTP {code})"
 
 
@@ -273,8 +282,13 @@ def _pick(d, *words, skip=()):
 
 
 def events_of(data):
-    """Find the list of scan events inside the reply and normalise each one."""
+    """Find the list of scan events inside the reply and normalise each one.
+    Known shape (Oct 2026): {"booking_details": {...}, "tracking_details": [{"date", "time", "office", "officeid", "event"}]}"""
     best = []
+    if isinstance(data, dict) and isinstance(data.get("tracking_details"), list):
+        best = [e for e in data["tracking_details"] if isinstance(e, dict) and (e.get("event") or e.get("status"))]
+        if not best:
+            return []
 
     def walk(x):
         nonlocal best
@@ -289,7 +303,8 @@ def events_of(data):
             for v in x:
                 walk(v)
 
-    walk(data)
+    if not best:
+        walk(data)
     out = []
     for e in best:
         date = _pick(e, "date", "time", "when")
@@ -297,6 +312,7 @@ def events_of(data):
         out.append({"text": _pick(e, "event", "status", "desc", "activity", "remark", skip=("date", "time", "office", "code", "_id", "pin")),
                     "where": _pick(e, "office", "location", "place", "city", "hub", skip=("date", "time", "code", "_id", "pin")),
                     "when": parse_dt((date + " " + time_).strip()), "raw": e})
+    out = [o for o in out if o["text"]]
     if out and all(o["when"] for o in out):
         out.sort(key=lambda o: o["when"])
     return out
@@ -374,6 +390,7 @@ def run():
     print(f"{len(orders)} parcels of the last 60 days, {len(todo)} still moving")
     cfg = pref_get("indiapost_action") or KNOWN
     changed = mailed = failed = 0
+    empties = 0
     for o in todo[:MAX_PER_RUN]:
         num = o["tracking"].strip().upper()
         oid = str(o["woo_order_id"])
@@ -381,6 +398,7 @@ def run():
         time.sleep(PACE)
         if data is None:
             failed += 1
+            empties += "no scans" in note or "no details" in note
             print(f"   {num} #{oid}: {note}")
             if "did not answer" in note or "network" in note:
                 break   # the site changed or is down; the rest would fail too — try again next run
@@ -428,12 +446,17 @@ def run():
                 mailed += 1
     if mailed:
         sb("POST", "rpc/vj_wake_wordpress", {})   # plugin runs the queue now instead of within the minute
+    if empties >= 3 and empties == failed and changed == 0 and len(todo) == failed:
+        sb("DELETE", "vj_prefs?key=eq.indiapost_action")    # every parcel "empty" = the remembered endpoint is probably wrong; search again next run
+        print("   remembered endpoint forgotten — will search again next run")
     print(f"done: {changed} moved, {mailed} customer updates queued, {failed} not answered")
 
 
 def test(number):
-    cfg = (pref_get("indiapost_action") if URL and KEY else None) or KNOWN
+    cfg = dict(KNOWN)                 # a test always searches afresh and re-saves what works
     data, cfg, note = fetch(number, cfg)
+    if data is not None and URL and KEY:
+        pref_set("indiapost_action", cfg)
     lines = [f"# India Post test · {number}", ""]
     if data is None:
         lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet.",
@@ -442,9 +465,11 @@ def test(number):
     else:
         s = summarise(number, data)
         lines += [f"**Works.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
+                  f"Endpoint: key `{cfg.get('key')}` · action `{cfg.get('action', '')[:10]}…`",
                   f"Latest scan: {s['text']} · {s['where']} · {s['when']}", "", "## Scan history"]
         lines += [f"- {e['when']} · {e['text']} · {e['where']}" for e in s["events"]] or ["(no events found in the reply — see raw below)"]
         lines += ["", "## Raw reply (for the developer)", "```json", json.dumps(data, indent=1, ensure_ascii=False)[:6000], "```"]
+    lines += ["", "```"] + [d for d in DEBUG if d.startswith(("site:", "keys in", "discovery", "found"))] + ["```"]
     text = "\n".join(lines)
     print(text)
     if os.getenv("GITHUB_STEP_SUMMARY"):
