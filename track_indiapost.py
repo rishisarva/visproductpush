@@ -112,9 +112,19 @@ def _extract(text):
     return None
 
 
-def _looks_right(obj):
-    return isinstance(obj, dict) and "data" in obj and obj["data"] not in (None, "", [], {}) \
-        and ("tracking" in json.dumps(obj)[:4000].lower() or "event" in json.dumps(obj)[:4000].lower())
+def _looks_right(obj, number=""):
+    """A real answer: {"data": …} that is not empty and mentions the number (or scan words)."""
+    if not (isinstance(obj, dict) and "data" in obj and obj["data"] not in (None, "", [], {})):
+        return False
+    blob = json.dumps(obj)[:20000].lower()
+    return (number and number.lower() in blob) or "tracking" in blob or "event" in blob or "office" in blob
+
+
+DEBUG = []   # what India Post answered, for the test report
+
+
+def _note(path, action, code, text):
+    DEBUG.append(f"{code} · action {action[:8]}… · {path[:48]}\n{text[:1200]}")
 
 
 def find_action(sample):
@@ -147,34 +157,42 @@ def find_action(sample):
                 code, text = _post(path, action, sample)
             except requests.RequestException:
                 continue
-            if code == 200 and _looks_right(_extract(text)):
+            if code == 200 and _looks_right(_extract(text), sample):
                 print(f"   found: action {action[:10]}… via {path[:40]}")
                 return {"path": path, "action": action}
             time.sleep(0.4)
+    DEBUG.append(f"discovery: {len(chunks)} scripts, {len(cands)} ids tried, none answered")
     return None
 
 
 def fetch(number, cfg, allow_discover=True):
     """→ (data dict or None, cfg, note)"""
-    for path in [cfg["path"]] + [p for p in PATHS if p != cfg["path"]]:
-        try:
-            code, text = _post(path, cfg["action"], number)
-        except requests.RequestException as exc:
-            return None, cfg, f"network: {exc}"
-        obj = _extract(text)
-        if code == 200 and _looks_right(obj):
-            if path != cfg["path"]:
-                cfg = {"path": path, "action": cfg["action"]}
-                pref_set("indiapost_action", cfg)
-            return obj["data"], cfg, ""
-        if code == 200 and obj is not None:
-            return None, cfg, "no details (number unknown to India Post yet?)"
+    code, empty = 0, False
+    actions = [cfg["action"]] + ([] if cfg["action"] == KNOWN["action"] else [KNOWN["action"]])
+    for action in actions:
+        for path in [cfg["path"]] + [p for p in PATHS if p != cfg["path"]]:
+            try:
+                code, text = _post(path, action, number)
+            except requests.RequestException as exc:
+                return None, cfg, f"network: {exc}"
+            _note(path, action, code, text)
+            obj = _extract(text)
+            if code == 200 and _looks_right(obj, number):
+                if path != cfg["path"] or action != cfg["action"]:
+                    cfg = {"path": path, "action": action}
+                    pref_set("indiapost_action", cfg)
+                return obj["data"], cfg, ""
+            if code == 200 and isinstance(obj, dict) and obj.get("data") in (None, "", [], {}):
+                empty = True          # answered, but nothing for this number
+            time.sleep(0.5)
     if allow_discover:
         new = find_action(number)
         if new:
             pref_set("indiapost_action", new)
             return fetch(number, new, allow_discover=False)
-    return None, cfg, f"India Post did not answer the way the website expects (HTTP {code})"
+    if empty:
+        return None, cfg, "India Post answered but had no details for this number"
+    return None, cfg, f"India Post did not answer the way the website expects (last HTTP {code})"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -320,8 +338,8 @@ def run():
         if data is None:
             failed += 1
             print(f"   {num} #{oid}: {note}")
-            if "did not answer" in note:
-                break   # the site changed; the rest would fail too — try again next run
+            if "did not answer" in note or "network" in note:
+                break   # the site changed or is down; the rest would fail too — try again next run
             continue
         s = summarise(num, data)
         prev = known.get(oid) or {}
@@ -374,7 +392,8 @@ def test(number):
     data, cfg, note = fetch(number, cfg)
     lines = [f"# India Post test · {number}", ""]
     if data is None:
-        lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet."]
+        lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet.",
+                  "", "## What India Post answered (for the developer)", "```"] + [d.replace("`", "'") for d in DEBUG[:12]] + ["```"]
     else:
         s = summarise(number, data)
         lines += [f"**Works.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
