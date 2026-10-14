@@ -98,7 +98,7 @@ def pref_set(key, value):
 # ──────────────────────────────────────────────────────────────
 
 def _post(path, action, number, key="ARTICLE_TRACKING_URL"):
-    r = S.post(IP + path, timeout=25, data=f'["{key}","GET",null,"{number}"]',
+    r = S.post(IP + path, timeout=40, data=f'["{key}","GET",null,"{number}"]',
                headers={"Content-Type": "text/plain;charset=UTF-8", "Accept": "text/x-component",
                         "Next-Action": action, "Origin": IP, "Referer": IP + path})
     return r.status_code, r.text
@@ -227,7 +227,7 @@ def fetch(number, cfg, allow_discover=True):
             if _looks_right(obj, number):
                 if path != cfg["path"] or key != cfg["key"]:
                     cfg = {"path": path, "action": cfg["action"], "key": key}
-                    pref_set("indiapost_action", cfg)
+                    pref_set("indiapost_action2", cfg)
                 return obj["data"], cfg, ""
             if isinstance(obj, dict) and not obj.get("error") and (obj.get("data") in (None, "", [], {})
                     or (key == cfg["key"] and isinstance(obj["data"], dict) and "tracking_details" in obj["data"])):
@@ -241,7 +241,7 @@ def fetch(number, cfg, allow_discover=True):
     if allow_discover and not empty:
         new = find_action(number, cfg)
         if new:
-            pref_set("indiapost_action", new)
+            pref_set("indiapost_action2", new)
             return fetch(number, new, allow_discover=False)
     if empty:
         return None, cfg, "India Post answered but has no scans for this number yet"
@@ -388,21 +388,45 @@ def run():
             known[str(o["woo_order_id"])] = {"order_id": k["order_id"], "reship": True}
     todo = [o for o in orders if (known.get(str(o["woo_order_id"])) or {}).get("stage") not in ("delivered", "rto")]
     print(f"{len(orders)} parcels of the last 60 days, {len(todo)} still moving")
-    cfg = pref_get("indiapost_action") or KNOWN
+    cfg = pref_get("indiapost_action2") or KNOWN
     changed = mailed = failed = 0
     empties = 0
+    net_fail = 0          # consecutive network problems
+    run_empty = 0         # consecutive "no scans" — 3 in a row means the remembered endpoint is wrong
     for o in todo[:MAX_PER_RUN]:
         num = o["tracking"].strip().upper()
         oid = str(o["woo_order_id"])
         data, cfg, note = fetch(num, cfg)
         time.sleep(PACE)
+        if data is None and "no scans" in note:
+            run_empty += 1
+            prev_stage = (known.get(oid) or {}).get("stage")
+            if run_empty >= 3 or prev_stage not in (None, "", "registered"):
+                # a parcel that already had scans can't have none now → the endpoint must be re-found
+                new = find_action(num, cfg)
+                if new:
+                    cfg = new
+                    pref_set("indiapost_action2", cfg)
+                    data, cfg, note = fetch(num, cfg, allow_discover=False)
+                    run_empty = 0
+        elif data is not None:
+            run_empty = 0
         if data is None:
             failed += 1
             empties += "no scans" in note or "no details" in note
             print(f"   {num} #{oid}: {note}")
-            if "did not answer" in note or "network" in note:
-                break   # the site changed or is down; the rest would fail too — try again next run
+            if "network" in note:
+                net_fail += 1
+                if net_fail >= 3:
+                    print("   India Post is not answering — stopping, next run in 30 minutes")
+                    break
+                time.sleep(5)
+                continue
+            net_fail = 0
+            if "did not answer" in note:
+                break   # the site changed; the rest would fail too — try again next run
             continue
+        net_fail = 0
         s = summarise(num, data)
         prev = known.get(oid) or {}
         cust = o.get("customer") if isinstance(o.get("customer"), dict) else {}
@@ -447,7 +471,7 @@ def run():
     if mailed:
         sb("POST", "rpc/vj_wake_wordpress", {})   # plugin runs the queue now instead of within the minute
     if empties >= 3 and empties == failed and changed == 0 and len(todo) == failed:
-        sb("DELETE", "vj_prefs?key=eq.indiapost_action")    # every parcel "empty" = the remembered endpoint is probably wrong; search again next run
+        sb("DELETE", "vj_prefs?key=eq.indiapost_action2")    # every parcel "empty" = the remembered endpoint is probably wrong; search again next run
         print("   remembered endpoint forgotten — will search again next run")
     print(f"done: {changed} moved, {mailed} customer updates queued, {failed} not answered")
 
@@ -456,7 +480,7 @@ def test(number):
     cfg = dict(KNOWN)                 # a test always searches afresh and re-saves what works
     data, cfg, note = fetch(number, cfg)
     if data is not None and URL and KEY:
-        pref_set("indiapost_action", cfg)
+        pref_set("indiapost_action2", cfg)
     lines = [f"# India Post test · {number}", ""]
     if data is None:
         lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet.",
