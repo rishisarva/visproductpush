@@ -204,6 +204,29 @@ def find_keys(js):
     return keys
 
 
+def probe(js):
+    """For the report: where the tracking strings live in the site's code (so the key can be read by eye)."""
+    for src, code in js:
+        name = src.rsplit("/", 1)[-1]
+        for m in re.finditer(r'[A-Z][A-Z0-9_]{4,}_URL', code):
+            k = m.group(0)
+            if re.search(r"TRACK|CONSIGN|ARTICLE", k):
+                a, b = max(0, m.start() - 160), min(len(code), m.end() + 160)
+                DEBUG.append(f"probe: {name} · {k}\n" + code[a:b].replace("\n", " "))
+        for m in re.finditer(KNOWN["action"][:12], code):
+            a, b = max(0, m.start() - 200), min(len(code), m.end() + 200)
+            DEBUG.append(f"probe: {name} · action id context\n" + code[a:b].replace("\n", " "))
+        for m in re.finditer(r'(?i)article[_-]?track|track[_-]?article|consignment[_-]?track', code):
+            a, b = max(0, m.start() - 120), min(len(code), m.end() + 120)
+            DEBUG.append(f"probe: {name} · '{m.group(0)}'\n" + code[a:b].replace("\n", " "))
+    seen = set(); out = []
+    for d in DEBUG:
+        if d.startswith("probe:") and d in seen:
+            continue
+        seen.add(d); out.append(d)
+    DEBUG[:] = out[:60]
+
+
 def find_action(sample, cfg):
     """Rediscover the URL key and/or the server-action id from the website's own JavaScript."""
     print("   looking for India Post's current tracking action…")
