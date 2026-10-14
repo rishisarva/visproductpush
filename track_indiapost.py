@@ -201,6 +201,8 @@ def find_action(sample, cfg):
                 continue
             tried += 1
             obj = _extract(text)
+            if obj is not None and action == actions[0]:
+                _note("/", action, code, text, key)
             if _looks_right(obj, sample):
                 print(f"   found: action {action[:10]}… key {key}")
                 return {"path": "/", "action": action, "key": key}
@@ -388,7 +390,23 @@ def run():
             known[str(o["woo_order_id"])] = {"order_id": k["order_id"], "reship": True}
     todo = [o for o in orders if (known.get(str(o["woo_order_id"])) or {}).get("stage") not in ("delivered", "rto")]
     print(f"{len(orders)} parcels of the last 60 days, {len(todo)} still moving")
-    cfg = pref_get("indiapost_action2") or KNOWN
+    cfg = pref_get("indiapost_action2")
+    if not cfg:
+        # No remembered endpoint: find it using parcels shipped a while ago (they have scans;
+        # a parcel booked an hour ago answers "no scans" from every endpoint and proves nothing).
+        for o in list(reversed(todo))[:4]:
+            new = find_action(o["tracking"].strip().upper(), dict(KNOWN))
+            if new:
+                cfg = new
+                pref_set("indiapost_action2", cfg)
+                break
+            time.sleep(PACE)
+        if not cfg:
+            print("could not find India Post's tracking endpoint with the 4 oldest parcels — run the test with a parcel that has scans")
+            for d in DEBUG:
+                if d.startswith(("site:", "keys in", "discovery")):
+                    print("   " + d)
+            return
     changed = mailed = failed = 0
     empties = 0
     net_fail = 0          # consecutive network problems
@@ -483,7 +501,7 @@ def test(number):
         pref_set("indiapost_action2", cfg)
     lines = [f"# India Post test · {number}", ""]
     if data is None:
-        lines += [f"**Did not work:** {note}", "", "India Post may have changed its site, or the number is not in their system yet.",
+        lines += [f"**Did not work:** {note}", "", "If this parcel was booked today it may simply have no scans yet — test with one that India Post's site already shows scans for.",
                   "", "## What India Post answered (for the developer)", "```"] \
                  + [d.replace("`", "'") for d in DEBUG[:4]] + [d for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery"))] + ["```"]
     else:
