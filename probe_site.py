@@ -54,6 +54,22 @@ def main(url, number):
             say(f"   [{s_.rsplit('/',1)[-1][:40]}] " + js[a:b].replace("\n", " ")); seen += 1
             if seen > 40: break
         if seen > 40: break
+    say("\n## the page the form goes to")
+    found = re.search(r'encodeURI\("([^"]+)"\s*\+\s*"/"\s*\+\s*"([^"]+)"', html)
+    result_url = f"{base}{found.group(1)}/{found.group(2)}/{number}" if found else f"{base}/track-and-trace/india-post-domestic/{number}"
+    code, txt, ct = get(result_url, headers={"Referer": url})
+    say(f"   {code} {result_url} · {ct[:30]} · {len(txt)} bytes · number present: {number in txt}")
+    text = re.sub(r"\s+", " ", re.sub(r"<script.*?</script>|<style.*?</style>|<[^>]+>", " ", txt, flags=re.S))
+    i = text.find(number); say("   visible text around the number: …" + text[max(0, i - 400): i + 1800] + "…" if i >= 0 else "   visible text: " + text[:1500])
+    for m in re.finditer(r"<script(?![^>]*src)[^>]*>(.*?)</script>", txt, re.S | re.I):
+        js = m.group(1)
+        if re.search(r"fetch\(|\$\.(ajax|get|post|getJSON)\(|XMLHttpRequest|axios|/api/|ajax", js):
+            say("   result-page script: " + re.sub(r"\s+", " ", js)[:2500])
+    for s_ in re.findall(r'<script[^>]+src="([^"]+)"', txt):
+        say("   result-page script src: " + s_)
+    for m in re.finditer(r"<(?:table|ul|ol)[^>]*>(.*?)</(?:table|ul|ol)>", txt, re.S | re.I):
+        inner = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " | ", m.group(1)))
+        if re.search(r"(?i)booked|received|dispatch|deliver|bagged", inner): say("   result-page table/list: " + inner[:1500])
     say("\n## likely result URLs")
     slug = urlparse(url).path.strip("/")
     cands = [f"{base}/{slug}?awb={number}", f"{base}/{slug}?tracking={number}", f"{base}/{slug}?number={number}", f"{base}/{slug}/{number}",
