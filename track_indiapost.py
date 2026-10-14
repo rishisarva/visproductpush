@@ -134,31 +134,55 @@ def _note(path, action, code, text, key=""):
     DEBUG.append(f"{code} · action {action[:8]}… · key {key} · {path[:40]}\n{text[:700]}")
 
 
-def site_js():
-    """The site's JavaScript files (home page + any page whose link mentions tracking)."""
-    pages, chunks, js = ["/"], [], []
+GUESS_PAGES = ["/track-consignment", "/tracking", "/track", "/track-result", "/trackconsignment", "/consignment-tracking",
+               "/track-your-consignment", "/services/tracking", "/en/track-consignment", "/track-result/article-tracking"]
+
+
+def _get(path, rsc=False):
+    h = {"RSC": "1"} if rsc else {}
     try:
-        html = S.get(IP + "/", timeout=25).text
-        for href in re.findall(r'href="(/[^"]*track[^"]*)"', html, re.I):
-            if href not in pages:
-                pages.append(href)
+        r = S.get(IP + path, timeout=25, headers=h)
+        return r.status_code, r.text
     except requests.RequestException:
-        html = ""
-    for page in pages[:6]:
-        try:
-            html = S.get(IP + page, timeout=25).text
-        except requests.RequestException:
-            continue
-        for src in re.findall(r'src="([^"]*/_next/static/[^"]+\.js[^"]*)"', html):
-            src = src if src.startswith("http") else IP + src
-            if src not in chunks:
-                chunks.append(src)
-    for src in chunks[:60]:
+        return 0, ""
+
+
+def site_js():
+    """The site's JavaScript files: the home page's, plus those of every page that
+    looks like a tracking page (links found in the site + a list of likely paths).
+    It's a Next.js "app router" site, so a page's own scripts are only listed in its
+    React payload (fetched with the RSC header), not in the home page."""
+    pages = ["/"]
+    code, html = _get("/")
+    code2, flight = _get("/", rsc=True)
+    for text in (html, flight):
+        for href in re.findall(r'href\\?":\\?"(/[A-Za-z0-9_\-/]*)', text) + re.findall(r'href="(/[A-Za-z0-9_\-/]*)"', text):
+            if re.search(r"track|consign", href, re.I) and href not in pages:
+                pages.append(href)
+    for g in GUESS_PAGES:
+        if g not in pages:
+            pages.append(g)
+    chunks, found_pages = [], []
+    for page in pages[:14]:
+        got = False
+        for rsc in (False, True):
+            code, text = _get(page, rsc=rsc)
+            if code != 200 and page != "/":
+                continue
+            for src in re.findall(r'(?:/_next/)?static/chunks/[A-Za-z0-9_\-/.\[\]%]+\.js', text):
+                src = IP + (src if src.startswith("/_next/") else "/_next/" + src)
+                if src not in chunks:
+                    chunks.append(src); got = True
+        if got:
+            found_pages.append(page)
+    js = []
+    for src in chunks[:90]:
         try:
             js.append((src, S.get(src, timeout=25).text))
         except requests.RequestException:
             pass
-    DEBUG.append(f"site: pages {pages} · {len(js)} scripts read")
+    trackish = [c.rsplit("/", 1)[-1] for c in chunks if re.search(r"track|consign", c, re.I)]
+    DEBUG.append(f"site: pages with scripts {found_pages} · {len(js)} scripts read · tracking-looking scripts: {trackish[:8]}")
     return js
 
 
@@ -210,6 +234,7 @@ def find_action(sample, cfg):
                 break        # this action id doesn't exist at all — no point trying keys with it
             time.sleep(0.3)
     DEBUG.append(f"discovery: {tried} combinations tried, none answered")
+    probe(js)
     return None
 
 
@@ -402,10 +427,12 @@ def run():
                 break
             time.sleep(PACE)
         if not cfg:
-            print("could not find India Post's tracking endpoint with the 4 oldest parcels — run the test with a parcel that has scans")
+            print("could not find India Post's tracking endpoint with the 4 oldest parcels — send this whole output to Claude:")
+            shown = set()
             for d in DEBUG:
-                if d.startswith(("site:", "keys in", "discovery")):
-                    print("   " + d)
+                if d.startswith(("site:", "keys in", "discovery", "probe")) or " · key " in d:
+                    if d[:80] in shown: continue
+                    shown.add(d[:80]); print("   " + d.replace("\n", "\n      "))
             return
     changed = mailed = failed = 0
     empties = 0
@@ -503,7 +530,7 @@ def test(number):
     if data is None:
         lines += [f"**Did not work:** {note}", "", "If this parcel was booked today it may simply have no scans yet — test with one that India Post's site already shows scans for.",
                   "", "## What India Post answered (for the developer)", "```"] \
-                 + [d.replace("`", "'") for d in DEBUG[:4]] + [d for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery"))] + ["```"]
+                 + [d.replace("`", "'") for d in DEBUG[:4]] + [d.replace("`", "'") for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery", "probe")) or " · key " in d] + ["```"]
     else:
         s = summarise(number, data)
         lines += [f"**Works.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
