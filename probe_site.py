@@ -28,6 +28,13 @@ def main(url, number):
         inputs = re.findall(r"<(?:input|select|button)[^>]*>", m.group(1), re.I)
         say(tag); [say("   " + i[:200]) for i in inputs[:12]]
     say("\n## captcha signs: " + ", ".join(sorted(set(re.findall(r"(?i)recaptcha|hcaptcha|turnstile|grecaptcha|captcha", html)))) or "none in HTML")
+    say("\n## the form's own JavaScript (onFormSubmit / location changes)")
+    for m in re.finditer(r"<script(?![^>]*src)[^>]*>(.*?)</script>", html, re.S | re.I):
+        js = m.group(1)
+        for k in re.finditer(r"onFormSubmit|location\.href|window\.location|location\.assign|location\.replace|\.submit\(", js):
+            a, b = max(0, k.start() - 200), min(len(js), k.end() + 900); say("   …" + re.sub(r"\s+", " ", js[a:b]) + "…")
+        for k in re.findall(r"""["'`](/[A-Za-z0-9_\-/]{3,80})["'`]""", js):
+            say("   path string: " + k)
     say("\n## inline script snippets with fetch/axios/XMLHttpRequest/api")
     for m in re.finditer(r"<script(?![^>]*src)[^>]*>(.*?)</script>", html, re.S | re.I):
         js = m.group(1)
