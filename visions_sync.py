@@ -377,11 +377,41 @@ class Woo:
         # we switch to that the first time it happens and stay there for the run.
         self._key, self._secret = key, secret
         self.qs_auth = False
+        # Plan B when the host walls off /wp-json/ for GitHub's servers entirely (HTML 401/403
+        # whatever the auth): the plugin's private door on the site's normal address,
+        # POST {root}/?vj_rest=1 with header x-vj-secret (plugin v6.6+, secret = the plugin's
+        # "Email secret", GitHub secret VJ_SECRET). The REST answer comes back unchanged.
+        self.root = url.rstrip("/")
+        self._door_secret = (os.environ.get("VJ_SECRET") or "").strip()
+        self.door = False
         self._attr_cache: dict[str, int] = {}
         self._term_cache: dict[int, set[str]] = {}
 
+    def _door_request(self, method: str, path: str, kwargs: dict):
+        body = {"method": method, "path": "/wc/v3" + path,
+                "query": {k: v for k, v in (kwargs.get("params") or {}).items()
+                          if k not in ("consumer_key", "consumer_secret")}}
+        if kwargs.get("json") is not None:
+            body["body"] = kwargs["json"]
+        return self.session.post(self.root + "/?vj_rest=1", json=body, timeout=self.timeout,
+                                 headers={"x-vj-secret": self._door_secret, "Accept": "application/json"})
+
     def call(self, method: str, path: str, **kwargs) -> Any:
         for attempt in range(6):
+            if self.door:
+                try:
+                    resp = self._door_request(method, path, kwargs)
+                except requests.RequestException as exc:
+                    if attempt == 3:
+                        raise
+                    log.warning("Network error (%s), retry %d", exc, attempt + 1)
+                    time.sleep(2 ** attempt)
+                    continue
+                if resp.status_code in (429, 502, 503, 504) and attempt < 5:
+                    time.sleep(max(2 ** attempt, 5)); continue
+                if resp.status_code >= 400:
+                    raise RuntimeError(f"{method} {path} (via plugin door) -> {resp.status_code}: {resp.text[:300]}")
+                return resp.json() if resp.text else {}
             if self.qs_auth:
                 kwargs = dict(kwargs)
                 kwargs["params"] = {**(kwargs.get("params") or {}),
@@ -411,13 +441,23 @@ class Woo:
                 time.sleep(wait)
                 continue
 
-            if resp.status_code in (401, 403) and not self.qs_auth \
+            if resp.status_code in (401, 403) \
                     and "json" not in (resp.headers.get("Content-Type") or "").lower():
-                log.warning("The host blocked the Authorization header on wp-json (HTML %s) — "
-                            "retrying with the keys in the URL", resp.status_code)
-                self.qs_auth = True
-                self.session.auth = None
-                continue
+                if not self.qs_auth:
+                    log.warning("The host blocked the Authorization header on wp-json (HTML %s) — "
+                                "retrying with the keys in the URL", resp.status_code)
+                    self.qs_auth = True
+                    self.session.auth = None
+                    continue
+                if self._door_secret and not self.door:
+                    log.warning("The host walls off /wp-json/ for this server (HTML %s) — "
+                                "switching to the plugin's private door (%s/?vj_rest=1)", resp.status_code, self.root)
+                    self.door = True
+                    continue
+                if not self._door_secret:
+                    raise RuntimeError(f"{method} {path} -> {resp.status_code}: the hosting server walls off /wp-json/ for GitHub. "
+                                       "Fix: plugin v6.6+ on the site and a GitHub secret VJ_SECRET = the plugin's Email secret "
+                                       "(WP admin → Settings → VJ Push); the sync then goes through the plugin's door instead.")
             if resp.status_code >= 400:
                 hint = ""
                 if resp.status_code in (401, 403):
