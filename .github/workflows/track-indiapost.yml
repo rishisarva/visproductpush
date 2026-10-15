@@ -37,6 +37,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TRACK17_KEY: ${{ secrets.TRACK17_KEY }}
         run: |
           if [ -n "${{ github.event.inputs.tracking }}" ]; then
             python -u track_indiapost.py --test "${{ github.event.inputs.tracking }}"
