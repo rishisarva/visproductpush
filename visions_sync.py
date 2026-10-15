@@ -370,7 +370,12 @@ class Woo:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.auth = (key, secret)
-        self.session.headers.update({"User-Agent": "visions-sync/1.0"})
+        # A browser-like signature: hosting bot walls often turn away anything that announces
+        # itself as a script (python-requests, visions-sync/…) from a datacenter address.
+        self.session.headers.update({
+            "User-Agent": os.environ.get("VJ_UA") or ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                                                      "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 VisionsSync"),
+            "Accept": "application/json, text/plain, */*", "Accept-Language": "en-IN,en;q=0.9"})
         # Some hosts intercept the "Authorization: Basic" header on wp-json and answer with
         # their own HTML 401/403 page before WooCommerce sees the request. WooCommerce also
         # accepts the same keys as URL parameters (over https), which such firewalls ignore —
@@ -386,6 +391,20 @@ class Woo:
         self.door = False
         self._attr_cache: dict[str, int] = {}
         self._term_cache: dict[int, set[str]] = {}
+
+    @staticmethod
+    def _wall_text(resp) -> str:
+        """The visible words of an HTML block page (title + text), so the log says WHO blocked us."""
+        t = resp.text or ""
+        if "json" in (resp.headers.get("Content-Type") or "").lower():
+            return t[:300]
+        import re as _re
+        title = _re.search(r"<title[^>]*>(.*?)</title>", t, _re.S | _re.I)
+        body = _re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", t, flags=_re.S | _re.I)
+        body = _re.sub(r"<[^>]+>", " ", body)
+        body = _re.sub(r"\s+", " ", html.unescape(body)).strip()
+        srv = ", ".join(f"{h}={resp.headers[h]}" for h in ("Server", "X-Powered-By", "CF-Ray", "X-Cache", "Via") if resp.headers.get(h))
+        return (f"[title: {title.group(1).strip()}] " if title else "") + body[:600] + (f"  [headers: {srv}]" if srv else "")
 
     def _door_request(self, method: str, path: str, kwargs: dict):
         body = {"method": method, "path": "/wc/v3" + path,
@@ -410,7 +429,7 @@ class Woo:
                 if resp.status_code in (429, 502, 503, 504) and attempt < 5:
                     time.sleep(max(2 ** attempt, 5)); continue
                 if resp.status_code >= 400:
-                    raise RuntimeError(f"{method} {path} (via plugin door) -> {resp.status_code}: {resp.text[:300]}")
+                    raise RuntimeError(f"{method} {path} (via plugin door) -> {resp.status_code}: {self._wall_text(resp)}")
                 return resp.json() if resp.text else {}
             if self.qs_auth:
                 kwargs = dict(kwargs)
@@ -466,7 +485,7 @@ class Woo:
                             if "json" in (resp.headers.get("Content-Type") or "").lower()
                             else "  [the hosting server blocked the request before WooCommerce — firewall / security plugin / IP block]")
                 raise RuntimeError(
-                    f"{method} {path} -> {resp.status_code}: {resp.text[:300]}{hint}"
+                    f"{method} {path} -> {resp.status_code}: {self._wall_text(resp)}{hint}"
                 )
             return resp.json() if resp.text else {}
         raise RuntimeError(f"{method} {path} failed after retries")
