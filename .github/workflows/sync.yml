@@ -49,6 +49,7 @@ jobs:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
+          VJ_SECRET: ${{ secrets.VJ_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
@@ -72,6 +73,7 @@ jobs:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
+          VJ_SECRET: ${{ secrets.VJ_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: >
@@ -106,6 +108,7 @@ jobs:
           WC_URL: ${{ secrets.WC_URL }}
           WC_KEY: ${{ secrets.WC_KEY }}
           WC_SECRET: ${{ secrets.WC_SECRET }}
+          VJ_SECRET: ${{ secrets.VJ_SECRET }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: >
