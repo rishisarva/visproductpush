@@ -371,11 +371,21 @@ class Woo:
         self.session = requests.Session()
         self.session.auth = (key, secret)
         self.session.headers.update({"User-Agent": "visions-sync/1.0"})
+        # Some hosts intercept the "Authorization: Basic" header on wp-json and answer with
+        # their own HTML 401/403 page before WooCommerce sees the request. WooCommerce also
+        # accepts the same keys as URL parameters (over https), which such firewalls ignore —
+        # we switch to that the first time it happens and stay there for the run.
+        self._key, self._secret = key, secret
+        self.qs_auth = False
         self._attr_cache: dict[str, int] = {}
         self._term_cache: dict[int, set[str]] = {}
 
     def call(self, method: str, path: str, **kwargs) -> Any:
         for attempt in range(6):
+            if self.qs_auth:
+                kwargs = dict(kwargs)
+                kwargs["params"] = {**(kwargs.get("params") or {}),
+                                    "consumer_key": self._key, "consumer_secret": self._secret}
             try:
                 resp = self.session.request(method, self.base + path,
                                             timeout=self.timeout, **kwargs)
@@ -401,9 +411,22 @@ class Woo:
                 time.sleep(wait)
                 continue
 
+            if resp.status_code in (401, 403) and not self.qs_auth \
+                    and "json" not in (resp.headers.get("Content-Type") or "").lower():
+                log.warning("The host blocked the Authorization header on wp-json (HTML %s) — "
+                            "retrying with the keys in the URL", resp.status_code)
+                self.qs_auth = True
+                self.session.auth = None
+                continue
             if resp.status_code >= 400:
+                hint = ""
+                if resp.status_code in (401, 403):
+                    hint = ("  [WooCommerce refused the API keys — WooCommerce → Settings → Advanced → REST API: "
+                            "the key must exist, be Read/Write, and match the WC_KEY / WC_SECRET secrets in GitHub]"
+                            if "json" in (resp.headers.get("Content-Type") or "").lower()
+                            else "  [the hosting server blocked the request before WooCommerce — firewall / security plugin / IP block]")
                 raise RuntimeError(
-                    f"{method} {path} -> {resp.status_code}: {resp.text[:300]}"
+                    f"{method} {path} -> {resp.status_code}: {resp.text[:300]}{hint}"
                 )
             return resp.json() if resp.text else {}
         raise RuntimeError(f"{method} {path} failed after retries")
