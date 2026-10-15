@@ -27,11 +27,24 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
+# Scan source, first one with a key wins: AfterShip (AFTERSHIP_KEY, free 50/month, every month)
+# → 17TRACK (TRACK17_KEY, one-time credits) → India Post's own site (captcha now, kept as a last try).
+t17 = None
 try:
-    import track_source_17track as t17          # used when the TRACK17_KEY secret is set
+    import track_source_aftership as _as
+    if _as.ENABLED:
+        t17 = _as
 except Exception:                                 # noqa: BLE001
-    t17 = None
-USE17 = bool(t17 and t17.ENABLED)
+    pass
+if t17 is None:
+    try:
+        import track_source_17track as _t
+        if _t.ENABLED:
+            t17 = _t
+    except Exception:                             # noqa: BLE001
+        pass
+USE17 = t17 is not None
+SOURCE = "AfterShip" if (t17 and t17.__name__.endswith("aftership")) else ("17TRACK" if t17 else "India Post")
 
 try:
     import requests
@@ -449,12 +462,23 @@ def run():
     if USE17:
         # Scans from 17TRACK's API (India Post's own site needs a captcha now).
         nums = [o["tracking"].strip().upper() for o in todo[:MAX_PER_RUN]]
-        need = [n for n, o in zip(nums, todo) if not ((known.get(str(o["woo_order_id"])) or {}).get("raw") or {}).get("reg17")]
+        # Register only parcels shipped in the last 25 days — 17TRACK credits are one-time, and an
+        # older parcel is finished one way or another (mark it by hand in the dashboard if needed).
+        cut25 = (datetime.now(timezone.utc) - timedelta(days=25)).strftime("%Y-%m-%d")
+        need = [n for n, o in zip(nums, todo) if not ((known.get(str(o["woo_order_id"])) or {}).get("raw") or {}).get("reg17")
+                and (o.get("created_at") or "")[:10] >= cut25]
+        nums = [n for n, o in zip(nums, todo) if ((known.get(str(o["woo_order_id"])) or {}).get("raw") or {}).get("reg17") or n in need]
         ok, bad = t17.register(need) if need else (set(), {})
         for n, why in bad.items():
-            print(f"   {n}: 17TRACK did not accept it ({why})")
+            print(f"   {n}: {SOURCE} did not accept it ({why})")
+            # out of credits / unknown number → the dashboard shows it as "track by hand" instead of "waiting"
+            o = next((x for x in todo if x["tracking"].strip().upper() == n), None)
+            if o and not (known.get(str(o["woo_order_id"])) or {}).get("stage"):
+                sb("POST", "vj_track?on_conflict=order_id", [{"order_id": str(o["woo_order_id"]), "number": n, "stage": "manual",
+                    "status": why[:120], "description": "Automatic tracking unavailable — set the stage with the buttons",
+                    "updated_at": datetime.now(timezone.utc).isoformat()}], prefer="resolution=merge-duplicates,return=minimal")
         got17 = t17.info([n for n in nums if n not in bad])
-        print(f"   17TRACK: {len(need)} newly registered, {sum(1 for v in got17.values() if v)} with scans")
+        print(f"   {SOURCE}: {len(need)} newly registered, {sum(1 for v in got17.values() if v)} with scans")
         cfg = cfg or dict(KNOWN)
     elif not cfg:
         # No remembered endpoint: find it using parcels shipped a while ago (they have scans;
@@ -483,7 +507,7 @@ def run():
         oid = str(o["woo_order_id"])
         if USE17:
             data = got17.get(num)
-            note = "" if data else ("India Post answered but has no scans for this number yet" if num in got17 else "17TRACK did not accept this number")
+            note = "" if data else ("India Post answered but has no scans for this number yet" if num in got17 else f"{SOURCE} did not accept this number")
         else:
             data, cfg, note = fetch(num, cfg)
             time.sleep(PACE)
@@ -577,6 +601,10 @@ def test(number):
         ok, bad = t17.register([number])
         data = t17.info([number]).get(number) if number not in bad else None
         note = bad.get(number) or ("17TRACK has no scans for it yet (it fetches India Post within a few minutes of registering — run the test again in 10 minutes)")
+        try:
+            DEBUG.append("17TRACK raw answer:\n" + json.dumps(t17.raw(number), ensure_ascii=False)[:3000])
+        except Exception as exc:  # noqa: BLE001
+            DEBUG.append(f"17TRACK raw answer: error {exc}")
         if data is not None:
             data["_src"] = "17TRACK"
     else:
@@ -587,12 +615,12 @@ def test(number):
     if data is None:
         lines += [f"**Did not work:** {note}", "", "If this parcel was booked today it may simply have no scans yet — test with one that India Post's site already shows scans for.",
                   "", "## What India Post answered (for the developer)", "```"] \
-                 + [d.replace("`", "'") for d in DEBUG[:4]] + [d.replace("`", "'") for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery", "probe")) or " · key " in d] + ["```"]
+                 + [d.replace("`", "'") for d in DEBUG[:4]] + [d.replace("`", "'") for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery", "probe", "17TRACK")) or " · key " in d] + ["```"]
     else:
         s = summarise(number, data)
         if USE17:
             s["stage"] = t17.stage_from_17(data, s["stage"])
-        lines += [f"**Works{' (via 17TRACK)' if USE17 else ''}.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
+        lines += [f"**Works{' (via ' + SOURCE + ')' if USE17 else ''}.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
                   f"Endpoint: key `{cfg.get('key')}` · action `{cfg.get('action', '')[:10]}…`",
                   f"Latest scan: {s['text']} · {s['where']} · {s['when']}", "", "## Scan history"]
         lines += [f"- {e['when']} · {e['text']} · {e['where']}" for e in s["events"]] or ["(no events found in the reply — see raw below)"]
