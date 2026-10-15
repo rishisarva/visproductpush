@@ -28,6 +28,12 @@ import time
 from datetime import datetime, timedelta, timezone
 
 try:
+    import track_source_17track as t17          # used when the TRACK17_KEY secret is set
+except Exception:                                 # noqa: BLE001
+    t17 = None
+USE17 = bool(t17 and t17.ENABLED)
+
+try:
     import requests
 except ImportError:
     sys.exit("Missing dependency. Run:  pip install requests")
@@ -430,7 +436,7 @@ def run():
     orders = sb("GET", "shop_orders?select=ref,woo_order_id,tracking,customer,created_at,track_status"
                        f"&tracking=not.is.null&created_at=gte.{since}&order=created_at.desc&limit=400") or []
     orders = [o for o in orders if re.fullmatch(r"[A-Z]{2}\d{9}IN", (o.get("tracking") or "").strip().upper()) and o.get("woo_order_id")]
-    known = {str(r["order_id"]): r for r in (sb("GET", "vj_track?select=order_id,number,stage,status,location,event_at,attempts,done,updated_at&limit=1000") or [])}
+    known = {str(r["order_id"]): r for r in (sb("GET", "vj_track?select=order_id,number,stage,status,location,event_at,attempts,done,updated_at,raw&limit=1000") or [])}
     # finished parcels are left alone — unless the order got a NEW tracking number (reshipped after an RTO)
     for o in orders:
         k = known.get(str(o["woo_order_id"]))
@@ -439,7 +445,18 @@ def run():
     todo = [o for o in orders if (known.get(str(o["woo_order_id"])) or {}).get("stage") not in ("delivered", "rto")]
     print(f"{len(orders)} parcels of the last 60 days, {len(todo)} still moving")
     cfg = pref_get("indiapost_action2")
-    if not cfg:
+    got17 = {}
+    if USE17:
+        # Scans from 17TRACK's API (India Post's own site needs a captcha now).
+        nums = [o["tracking"].strip().upper() for o in todo[:MAX_PER_RUN]]
+        need = [n for n, o in zip(nums, todo) if not ((known.get(str(o["woo_order_id"])) or {}).get("raw") or {}).get("reg17")]
+        ok, bad = t17.register(need) if need else (set(), {})
+        for n, why in bad.items():
+            print(f"   {n}: 17TRACK did not accept it ({why})")
+        got17 = t17.info([n for n in nums if n not in bad])
+        print(f"   17TRACK: {len(need)} newly registered, {sum(1 for v in got17.values() if v)} with scans")
+        cfg = cfg or dict(KNOWN)
+    elif not cfg:
         # No remembered endpoint: find it using parcels shipped a while ago (they have scans;
         # a parcel booked an hour ago answers "no scans" from every endpoint and proves nothing).
         for o in list(reversed(todo))[:4]:
@@ -464,9 +481,13 @@ def run():
     for o in todo[:MAX_PER_RUN]:
         num = o["tracking"].strip().upper()
         oid = str(o["woo_order_id"])
-        data, cfg, note = fetch(num, cfg)
-        time.sleep(PACE)
-        if data is None and "no scans" in note:
+        if USE17:
+            data = got17.get(num)
+            note = "" if data else ("India Post answered but has no scans for this number yet" if num in got17 else "17TRACK did not accept this number")
+        else:
+            data, cfg, note = fetch(num, cfg)
+            time.sleep(PACE)
+        if data is None and "no scans" in note and not USE17:
             run_empty += 1
             prev_stage = (known.get(oid) or {}).get("stage")
             if run_empty >= 3 or prev_stage not in (None, "", "registered"):
@@ -496,18 +517,24 @@ def run():
             continue
         net_fail = 0
         s = summarise(num, data)
+        if USE17:
+            s["stage"] = t17.stage_from_17(data, s["stage"])
+            if s["stage"] == "registered" and not s["events"]:
+                s["text"] = s["text"] or "Registered — waiting for the first scan"
         prev = known.get(oid) or {}
         cust = o.get("customer") if isinstance(o.get("customer"), dict) else {}
         row = {"order_id": oid, "number": num, "stage": s["stage"], "status": s["text"][:120],
                "description": s["text"][:300], "location": s["where"][:120],
                "event_at": s["when"].isoformat() if s["when"] else None, "attempts": s["attempts"],
-               "raw": {"events": [{"text": e["text"], "where": e["where"], "when": e["when"].isoformat() if e["when"] else None} for e in s["events"]][-12:]},
+               "raw": {"events": [{"text": e["text"], "where": e["where"], "when": e["when"].isoformat() if e["when"] else None} for e in s["events"]][-12:], "reg17": USE17},
                "updated_at": datetime.now(timezone.utc).isoformat()}
         for k_src, k_dst in (("name", "name"), ("email", "email"), ("phone", "phone")):
             if cust.get(k_src):
                 row[k_dst] = str(cust[k_src])[:120]
         if s["stage"] == "delivered":
             row["done"] = True
+        if USE17 and s["stage"] in ("delivered", "rto"):
+            t17.stop([num])
         if prev.get("reship"):
             row["done"] = False
         sb("POST", "vj_track?on_conflict=order_id", [row], prefer="resolution=merge-duplicates,return=minimal")
@@ -546,9 +573,16 @@ def run():
 
 def test(number):
     cfg = dict(KNOWN)                 # a test always searches afresh and re-saves what works
-    data, cfg, note = fetch(number, cfg)
-    if data is not None and URL and KEY:
-        pref_set("indiapost_action2", cfg)
+    if USE17:
+        ok, bad = t17.register([number])
+        data = t17.info([number]).get(number) if number not in bad else None
+        note = bad.get(number) or ("17TRACK has no scans for it yet (it fetches India Post within a few minutes of registering — run the test again in 10 minutes)")
+        if data is not None:
+            data["_src"] = "17TRACK"
+    else:
+        data, cfg, note = fetch(number, cfg)
+        if data is not None and URL and KEY:
+            pref_set("indiapost_action2", cfg)
     lines = [f"# India Post test · {number}", ""]
     if data is None:
         lines += [f"**Did not work:** {note}", "", "If this parcel was booked today it may simply have no scans yet — test with one that India Post's site already shows scans for.",
@@ -556,7 +590,9 @@ def test(number):
                  + [d.replace("`", "'") for d in DEBUG[:4]] + [d.replace("`", "'") for d in DEBUG[4:] if d.startswith(("site:", "keys in", "discovery", "probe")) or " · key " in d] + ["```"]
     else:
         s = summarise(number, data)
-        lines += [f"**Works.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
+        if USE17:
+            s["stage"] = t17.stage_from_17(data, s["stage"])
+        lines += [f"**Works{' (via 17TRACK)' if USE17 else ''}.** Stage: `{s['stage']}` → customer sees **{label(s['stage'], s['where'])}** · failed attempts so far: {s['attempts']}",
                   f"Endpoint: key `{cfg.get('key')}` · action `{cfg.get('action', '')[:10]}…`",
                   f"Latest scan: {s['text']} · {s['where']} · {s['when']}", "", "## Scan history"]
         lines += [f"- {e['when']} · {e['text']} · {e['where']}" for e in s["events"]] or ["(no events found in the reply — see raw below)"]
