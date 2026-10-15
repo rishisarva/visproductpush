@@ -84,6 +84,11 @@ def info(numbers):
     return out
 
 
+def raw(number):
+    """17TRACK's untouched answer for one number (for the test report)."""
+    return _call("gettrackinfo", [{"number": number}])
+
+
 def _convert(ti):
     """17TRACK track_info → {"tracking_details": [{date, time, office, event}], "status17": "...", "sub17": "..."}"""
     events = []
