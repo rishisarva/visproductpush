@@ -445,10 +445,27 @@ def label(stage, where):
 def run():
     if not (URL and KEY):
         sys.exit("SUPABASE_URL / SUPABASE_KEY missing")
-    since = (datetime.now(timezone.utc) - timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    orders = sb("GET", "shop_orders?select=ref,woo_order_id,tracking,customer,created_at,track_status"
-                       f"&tracking=not.is.null&created_at=gte.{since}&order=created_at.desc&limit=400") or []
-    orders = [o for o in orders if re.fullmatch(r"[A-Z]{2}\d{9}IN", (o.get("tracking") or "").strip().upper()) and o.get("woo_order_id")]
+    # Only parcels YOU marked shipped in the dashboard app (Orders → Mark shipped + tracking number),
+    # in the last 45 days. Tracking numbers that only sit on old WooCommerce orders are ignored.
+    since45 = (datetime.now(timezone.utc) - timedelta(days=45)).strftime("%Y-%m-%d")
+    app = sb("GET", f"orders?select=id,tracking,shipped_at&shipped=eq.true&tracking=not.is.null&shipped_at=gte.{since45}"
+                    "&order=shipped_at.desc&limit=400") or []
+    app = {str(a["id"]): a for a in app if re.fullmatch(r"[A-Z]{2}\d{9}IN", (a.get("tracking") or "").strip().upper())}
+    orders = []
+    ids = list(app)
+    for i in range(0, len(ids), 80):
+        part = ",".join(ids[i:i + 80])
+        orders += sb("GET", "shop_orders?select=ref,woo_order_id,tracking,customer,created_at,track_status"
+                            f"&woo_order_id=in.({part})&limit=400") or []
+    seen = {str(o.get("woo_order_id")) for o in orders}
+    for oid, a in app.items():                      # shipped in the app but not (yet) a website order → still tracked
+        if oid not in seen:
+            orders.append({"ref": None, "woo_order_id": oid, "customer": {}, "created_at": a["shipped_at"]})
+    for o in orders:                                # the number typed in the app wins; shipped day = the day you pressed the button
+        a = app.get(str(o["woo_order_id"])) or {}
+        o["tracking"] = (a.get("tracking") or o.get("tracking") or "").strip().upper()
+        o["created_at"] = a.get("shipped_at") or o.get("created_at") or ""
+    orders.sort(key=lambda o: o["created_at"], reverse=True)
     known = {str(r["order_id"]): r for r in (sb("GET", "vj_track?select=order_id,number,stage,status,location,event_at,attempts,done,updated_at,raw&limit=1000") or [])}
     # finished parcels are left alone — unless the order got a NEW tracking number (reshipped after an RTO)
     for o in orders:
@@ -456,7 +473,7 @@ def run():
         if k and (k.get("number") or "") and k["number"] != o["tracking"].strip().upper():
             known[str(o["woo_order_id"])] = {"order_id": k["order_id"], "reship": True}
     todo = [o for o in orders if (known.get(str(o["woo_order_id"])) or {}).get("stage") not in ("delivered", "rto")]
-    print(f"{len(orders)} parcels of the last 60 days, {len(todo)} still moving")
+    print(f"{len(orders)} parcels marked shipped in the app in the last 45 days, {len(todo)} still moving")
     cfg = pref_get("indiapost_action2")
     got17 = {}
     if USE17:
@@ -563,7 +580,8 @@ def run():
             row["done"] = False
         sb("POST", "vj_track?on_conflict=order_id", [row], prefer="resolution=merge-duplicates,return=minimal")
         patch = {"track_status": label(s["stage"], s["where"]), "track_at": row["updated_at"], "track_events": customer_events(s["events"])}
-        sb("PATCH", f"shop_orders?ref=eq.{o['ref']}", patch, prefer="return=minimal")
+        if o.get("ref"):
+            sb("PATCH", f"shop_orders?ref=eq.{o['ref']}", patch, prefer="return=minimal")
         moved = prev.get("stage") != s["stage"] or (prev.get("location") or "") != (s["where"] or "")
         if moved:
             changed += 1
