@@ -1,7 +1,7 @@
 name: Track parcels (India Post)
 
-# Every 15 minutes: asks 17TRACK / India Post about every parcel shipped in the last 45
-# days and updates the dashboard (Orders → Shipped), the customer's order page
+# Every 15 minutes: asks 17TRACK about every parcel you marked shipped in the app (last 45
+# days) and updates the dashboard (Orders → Shipped), the customer's order page
 # and — through the plugin — emails the customer (out for delivery / attempt
 # failed / delivered / returned) and your Telegram (delivered, RTO).
 #
@@ -38,6 +38,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TRACK17_KEY: ${{ secrets.TRACK17_KEY }}
+          TRACK17_KEYS: ${{ secrets.TRACK17_KEYS }}      # several 17TRACK accounts, comma-separated (the original key first)
+          AFTERSHIP_KEY: ${{ secrets.AFTERSHIP_KEY }}
         run: |
           if [ -n "${{ github.event.inputs.tracking }}" ]; then
             python -u track_indiapost.py --test "${{ github.event.inputs.tracking }}"
