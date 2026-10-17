@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 
 try:
     import requests
-    from PIL import Image, ImageOps
+    from PIL import Image, ImageDraw, ImageFont, ImageOps
 except ImportError:
     sys.exit("pip install requests pillow")
 
@@ -40,6 +40,129 @@ INDEX = os.path.join(REPO_DIR, "index.json")
 HOME = os.path.expanduser(os.environ.get("VJ_HOME", "~/vj-images"))
 SITE = os.path.join(HOME, "site")
 MAX_PX, QUALITY = 1200, 82
+
+# ───────────── v2: one 9:16 review card per review (photos collage + caption) ─────────────
+CARD_W, CARD_H = 1080, 1920
+PHOTO_H = 1330                      # photo area; the rest is the caption panel
+BG, PANEL, INK, MUTED, CREAM = (11, 11, 12), (20, 22, 31), (240, 232, 213), (154, 156, 166), (240, 232, 213)
+FONT_DIRS = ["/usr/share/fonts/truetype/dejavu", "/usr/share/fonts/dejavu", "/Library/Fonts", "C:/Windows/Fonts"]
+
+
+def font(size, bold=False):
+    names = ["DejaVuSans-Bold.ttf", "Arial Bold.ttf", "arialbd.ttf"] if bold else ["DejaVuSans.ttf", "Arial.ttf", "arial.ttf"]
+    for d in FONT_DIRS:
+        for n in names:
+            f = os.path.join(d, n)
+            if os.path.exists(f):
+                return ImageFont.truetype(f, size)
+    try:
+        return ImageFont.load_default(size=size)
+    except TypeError:
+        return ImageFont.load_default()
+
+
+def cover(im, w, h, radius=28):
+    """Photo cropped to fill w×h, rounded corners."""
+    im = ImageOps.exif_transpose(im).convert("RGB")
+    im = ImageOps.fit(im, (w, h), Image.LANCZOS, centering=(0.5, 0.4))
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+    out = Image.new("RGB", (w, h), BG)
+    out.paste(im, (0, 0), mask)
+    return out
+
+
+_EMOJI = None
+
+
+def clean_text(t):
+    """Drop emoji / pictographs (the card font has no glyphs for them) and tidy spaces."""
+    global _EMOJI
+    import re
+    if _EMOJI is None:
+        _EMOJI = re.compile("[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF\u2B00-\u2BFF\uFE0F\u200D\u20E3]")
+    t = _EMOJI.sub("", t or "")
+    return re.sub(r"[ \t]+", " ", t).strip()
+
+
+def wrap(draw, text, fnt, width):
+    lines, cur = [], ""
+    for word in text.replace("\n", " \n ").split(" "):
+        if word == "\n":
+            lines.append(cur); cur = ""; continue
+        trial = (cur + " " + word).strip()
+        if draw.textlength(trial, font=fnt) <= width or not cur:
+            cur = trial
+        else:
+            lines.append(cur); cur = word
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def make_card(photos, name, caption):
+    """photos: list of PIL images (1-4 used). → JPEG bytes, 1080×1920."""
+    card = Image.new("RGB", (CARD_W, CARD_H), BG)
+    pics = photos[:4]
+    g, pad = 10, 24                                   # gap between photos, outer padding
+    W, H = CARD_W - 2 * pad, PHOTO_H - pad
+    x0, y0 = pad, pad
+    if len(pics) == 1:
+        card.paste(cover(pics[0], W, H), (x0, y0))
+    elif len(pics) == 2:
+        w = (W - g) // 2
+        card.paste(cover(pics[0], w, H), (x0, y0)); card.paste(cover(pics[1], w, H), (x0 + w + g, y0))
+    elif len(pics) == 3:
+        wl = int(W * 0.62); wr = W - wl - g; hh = (H - g) // 2
+        card.paste(cover(pics[0], wl, H), (x0, y0))
+        card.paste(cover(pics[1], wr, hh), (x0 + wl + g, y0)); card.paste(cover(pics[2], wr, hh), (x0 + wl + g, y0 + hh + g))
+    else:
+        w = (W - g) // 2; hh = (H - g) // 2
+        for i, im in enumerate(pics):
+            card.paste(cover(im, w, hh), (x0 + (i % 2) * (w + g), y0 + (i // 2) * (hh + g)))
+    # caption panel
+    d = ImageDraw.Draw(card)
+    top = PHOTO_H + 10
+    d.rounded_rectangle((pad, top, CARD_W - pad, CARD_H - pad), radius=32, fill=PANEL)
+    y = top + 44
+    d.text((pad + 44, y), "★★★★★", font=font(40, True), fill=CREAM); y += 70
+    cap = clean_text(caption)
+    f_cap = font(44); lines = wrap(d, "\u201c" + cap + "\u201d" if cap else "", f_cap, CARD_W - 2 * pad - 88)
+    max_lines = 7
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]; lines[-1] = lines[-1].rstrip(" \u201d.,") + "\u2026\u201d"
+    for ln in lines:
+        d.text((pad + 44, y), ln, font=f_cap, fill=INK); y += 58
+    y += 18
+    who = clean_text(name).split(" ")[0] if clean_text(name) else ""
+    if who:
+        d.text((pad + 44, y), "\u2014 " + who, font=font(40, True), fill=CREAM); y += 60
+    d.text((pad + 44, CARD_H - pad - 70), "Verified buyer  \u00b7  shop.visionsjersey.com", font=font(28), fill=MUTED)
+    out = io.BytesIO()
+    card.save(out, "JPEG", quality=86, optimize=True, progressive=True)
+    return out.getvalue()
+
+
+def ensure_card(item):
+    """Build <short>-card.jpg for a review from its photos in the repo (once; or when missing)."""
+    short = item["id"].replace("-", "")[:10]
+    name = f"{short}-card.jpg"
+    path = os.path.join(REPO_DIR, name)
+    if item.get("card") == name and os.path.exists(path):
+        return False
+    pics = []
+    for f in item.get("images") or []:
+        fp = os.path.join(REPO_DIR, f)
+        if os.path.exists(fp):
+            try:
+                pics.append(Image.open(fp))
+            except Exception:  # noqa: BLE001
+                pass
+    if not pics:
+        return False
+    open(path, "wb").write(make_card(pics, item.get("name") or "", item.get("caption") or ""))
+    item["card"] = name
+    return True
 
 
 def sb(method, path, body=None, prefer=None):
@@ -117,9 +240,11 @@ def publish_approved(items):
             sb("PATCH", f"vj_reviews?id=eq.{rid}", {"status": "rejected"}, prefer="return=minimal")
             continue
         if rid not in have:
-            items.append({"id": rid, "name": (r.get("name") or "")[:60], "caption": (r.get("caption") or "")[:600],
-                          "at": r.get("created_at"), "images": files})
+            item = {"id": rid, "name": (r.get("name") or "")[:60], "caption": (r.get("caption") or "")[:600],
+                    "at": r.get("created_at"), "images": files}
+            items.append(item)
             have.add(rid)
+            ensure_card(item)
         sb("PATCH", f"vj_reviews?id=eq.{rid}", {"published": True, "published_at": datetime.now(timezone.utc).isoformat()}, prefer="return=minimal")
         storage_delete(r.get("images") or [])
         done += 1
@@ -142,7 +267,7 @@ def write_site(items):
     os.makedirs(os.path.join(SITE, "feeds"), exist_ok=True)
     wanted = set()
     for it in items:
-        for f in it["images"]:
+        for f in list(it["images"]) + ([it["card"]] if it.get("card") else []):
             wanted.add(f)
             src, dst = os.path.join(REPO_DIR, f), os.path.join(rdir, f)
             if os.path.exists(src) and (not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(src)):
@@ -151,6 +276,7 @@ def write_site(items):
         if f not in wanted:
             os.remove(os.path.join(rdir, f))
     feed = [{"id": it["id"], "name": it["name"], "caption": it["caption"], "at": it["at"],
+             "card": ("/r/" + it["card"]) if it.get("card") else None,
              "images": ["/r/" + f for f in it["images"]]} for it in items]
     json.dump(feed, open(os.path.join(SITE, "feeds", "reviews.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
@@ -160,6 +286,9 @@ def main():
         sys.exit("SUPABASE_URL / SUPABASE_KEY missing")
     items = load_index()
     n = publish_approved(items)
+    made = sum(1 for it in items if ensure_card(it))        # cards for reviews published before v2
+    if made:
+        print(f"   built {made} review card(s) for earlier reviews")
     gone = clear_rejected()
     save_index(items)
     write_site(items)
