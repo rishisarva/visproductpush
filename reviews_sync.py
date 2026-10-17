@@ -120,6 +120,16 @@ def make_card(photos, name, caption):
         w = (W - g) // 2; hh = (H - g) // 2
         for i, im in enumerate(pics):
             card.paste(cover(im, w, hh), (x0 + (i % 2) * (w + g), y0 + (i // 2) * (hh + g)))
+    # watermark: small "Visions Jersey" in the middle of the photos, low opacity
+    layer = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    wm_font = font(58, True)
+    wm = "Visions Jersey"
+    tw = ld.textlength(wm, font=wm_font)
+    wx, wy = (CARD_W - tw) / 2, PHOTO_H / 2 - 30
+    ld.text((wx + 2, wy + 2), wm, font=wm_font, fill=(0, 0, 0, 70))          # soft shadow so it reads on light photos
+    ld.text((wx, wy), wm, font=wm_font, fill=(255, 255, 255, 80))           # ~30% white
+    card = Image.alpha_composite(card.convert("RGBA"), layer).convert("RGB")
     # caption panel
     d = ImageDraw.Draw(card)
     top = PHOTO_H + 10
