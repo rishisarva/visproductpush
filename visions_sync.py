@@ -784,9 +784,17 @@ class Syncer:
     # copied over and the product goes live by itself (when its price type is
     # known), or is pre-filled with the photos so only Approve is left.
 
-    @staticmethod
-    def _title_key(name) -> str:
-        return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+    # Words that never change which jersey it is — "HOME KIT" and "HOME JERSEY"
+    # are the same product. Sleeve, neck, print and "player version" stay.
+    _TITLE_NOISE = {"kit", "kits", "jersey", "jerseys", "shirt", "tshirt", "t", "the", "and", "with",
+                    "new", "fc", "cf", "club"}
+
+    @classmethod
+    def _title_key(cls, name) -> str:
+        t = (name or "").lower()
+        t = re.sub(r"\b20(\d\d)\b", r"\1", t)                     # 2026-2027 == 2026-27 == 26-27
+        toks = [w for w in re.split(r"[^a-z0-9]+", t) if w and w not in cls._TITLE_NOISE]
+        return "".join(toks)
 
     def _photo_twin(self, product, pid):
         key = self._title_key(product.name)
@@ -834,7 +842,7 @@ class Syncer:
         self.woo.call("PUT", f"/products/{pid}", json={"status": "publish", "images": [{"src": u} for u in imgs]})
         self._went_live.append(product.sku)
         self.stats.relisted += 1
-        log.info("SAME    %s — photos copied from #%s, LIVE (same title as a jersey you already did)",
+        log.info("SAME    %s — photos copied from #%s, LIVE (same jersey as one you already did, no review needed)",
                  product.name[:40], cid)
         return True
 
@@ -875,6 +883,11 @@ class Syncer:
                 self._auto_from_twin(product, pid)
             elif status == "gone":
                 sync_cloud.review_mark(product.sku, "pending")
+            elif status == "pending" and not sync_cloud.edited_images(pid):
+                # Still waiting and has none of your photos yet: look again for a
+                # jersey with the same title that you HAVE done since (the twin may
+                # not have had photos when this product first arrived).
+                self._auto_from_twin(product, pid)
 
         want_parent_stock = "instock" if product.any_in_stock else "outofstock"
         if existing.get("stock_status") != want_parent_stock:
