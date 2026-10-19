@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.21 (3 Oct 2026) · two suppliers: shows only the ACTIVE one (VJ_ACTIVE = TS or MS, from supplier.txt); Thayyil products get live stock (checker &s=ts); the other supplier is never treated as leftovers · v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.23 (19 Oct 2026) · Meta catalogue photos are exactly 3:4 (1080×1440 JPEG, "-m34.jpg"): a small difference is trimmed from the edges, a bigger one (square photos) is filled with a blurred copy of the same photo so the jersey is never cut · v1.21 (3 Oct 2026) · two suppliers: shows only the ACTIVE one (VJ_ACTIVE = TS or MS, from supplier.txt); Thayyil products get live stock (checker &s=ts); the other supplier is never treated as leftovers · v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -45,8 +45,9 @@ AUTO = '--auto' in sys.argv or '--ci' in sys.argv
 CI = '--ci' in sys.argv          # GitHub Actions: login comes from the VJ_EMAIL / VJ_PASSWORD secrets
 PHOTOS = os.path.join(SITE, 'p')
 # Card = 840 px wide (420 shown at 2x), product page = 1600 px wide.
-SIZES = {'sm': (840, 80), 'lg': (1600, 82), 'mt': (1080, 85)}   # mt = JPEG for the Meta catalogue
-EXT = lambda size: 'jpg' if size == 'mt' else 'webp'
+SIZES = {'sm': (840, 80), 'lg': (1600, 82), 'm34': (1080, 85)}   # m34 = 3:4 JPEG for the Meta catalogue (v1.23)
+EXT = lambda size: 'jpg' if size == 'm34' else 'webp'
+META_W, META_H = 1080, 1440                                        # v1.23: Meta catalogue = 3:4
 UA = {'User-Agent': 'Mozilla/5.0 (Macintosh) VisionsJerseyPhotoBuilder/1'}
 
 
@@ -256,6 +257,43 @@ def make_webp(raw, width, quality, dest, fmt='WEBP'):
         im.save(tmp, 'JPEG', quality=quality, optimize=True, progressive=True)
     else:
         im.save(tmp, 'WEBP', quality=quality, method=4)
+    os.replace(tmp, dest)
+
+
+def make_meta_34(raw, quality, dest):
+    """v1.23: one 1080x1440 (3:4) JPEG for the Meta catalogue.
+    Off by up to 12% → trimmed evenly from the long side (nothing important is
+    at the very edge). Further off (square / landscape photos) → the whole photo
+    is fitted in and the empty space is a blurred, darkened copy of itself, so
+    no sleeve or hem is ever cut off."""
+    from PIL import Image, ImageFilter, ImageEnhance
+    im = Image.open(io.BytesIO(raw)); im.load()
+    if im.mode in ('RGBA', 'LA', 'P'):
+        im = im.convert('RGBA'); bg = Image.new('RGB', im.size, (255, 255, 255)); bg.paste(im, mask=im.split()[-1]); im = bg
+    else:
+        im = im.convert('RGB')
+    W, H = META_W, META_H
+    target, ratio = W / H, im.width / im.height
+    if abs(ratio - target) / target <= 0.12:
+        if ratio > target:                                    # a bit too wide: trim the sides
+            nw = round(im.height * target); x = (im.width - nw) // 2
+            im = im.crop((x, 0, x + nw, im.height))
+        else:                                                 # a bit too tall: trim top and bottom
+            nh = round(im.width / target); y = (im.height - nh) // 2
+            im = im.crop((0, y, im.width, y + nh))
+        out = im.resize((W, H), Image.LANCZOS)
+    else:
+        sc = max(W / im.width, H / im.height)
+        back = im.resize((max(W, round(im.width * sc)), max(H, round(im.height * sc))), Image.LANCZOS)
+        bx, by = (back.width - W) // 2, (back.height - H) // 2
+        back = back.crop((bx, by, bx + W, by + H)).filter(ImageFilter.GaussianBlur(40))
+        back = ImageEnhance.Brightness(back).enhance(0.8)
+        f = min(W / im.width, H / im.height)
+        front = im.resize((round(im.width * f), round(im.height * f)), Image.LANCZOS)
+        back.paste(front, ((W - front.width) // 2, (H - front.height) // 2))
+        out = back
+    tmp = dest + '.tmp'
+    out.save(tmp, 'JPEG', quality=quality, optimize=True, progressive=True)
     os.replace(tmp, dest)
 
 
@@ -539,7 +577,10 @@ def build(token):
         try:
             raw = cached_download(src)
             for s_, (w, q) in SIZES.items():
-                make_webp(raw, w, q, os.path.join(PHOTOS, names[s_]), 'JPEG' if s_ == 'mt' else 'WEBP')
+                if s_ == 'm34':
+                    make_meta_34(raw, q, os.path.join(PHOTOS, names[s_]))
+                else:
+                    make_webp(raw, w, q, os.path.join(PHOTOS, names[s_]), 'WEBP')
             return True, job, ''
         except Exception as e:
             return False, job, type(e).__name__ + (f' {e.code}' if hasattr(e, 'code') else '')
@@ -567,7 +608,7 @@ def build(token):
 
     # Remove photos that no longer belong to any product (keeps the site small and tidy).
     for f in os.listdir(PHOTOS):
-        if (f.endswith('.webp') or f.endswith('-mt.jpg')) and f not in keep:
+        if (f.endswith('.webp') or f.endswith('-mt.jpg') or f.endswith('-m34.jpg')) and f not in keep:
             os.remove(os.path.join(PHOTOS, f))
 
     with open(os.path.join(SITE, 'map.json'), 'w') as f:
@@ -612,7 +653,7 @@ def meta_catalogue(feed, photo_map, keep=None):
         if not h:
             return u
         swapped += 1
-        return f'{PUBLIC}/p/{k[0]}-{k[1]}-{h}-mt.jpg'
+        return f'{PUBLIC}/p/{k[0]}-{k[1]}-{h}-m34.jpg'
     text = raw.decode('utf-8-sig')
     rows = list(csv.reader(io.StringIO(text)))
     if not rows:
