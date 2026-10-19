@@ -289,17 +289,33 @@ def copy_shots(src_product_id, dst_product_id, slug: str = "", name: str = "") -
                 "updated_at": datetime.now(timezone.utc).isoformat()})
     res = _call("POST", "vj_shots?on_conflict=product_id", json=[row],
                 extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+    if res is not None and _SHOTS is not None:
+        _SHOTS[str(dst_product_id)] = row
     return res is not None
+
+
+_SHOTS: dict | None = None            # product_id -> {shots, removed}, read once per run
+
+
+def _shots_row(product_id):
+    """One vj_shots row. The whole table is read once per run (one request
+    instead of one per product — the twin check now runs for every pending
+    product on every sync)."""
+    global _SHOTS
+    if _SHOTS is None:
+        rows = _call("GET", "vj_shots?select=product_id,shots,removed&limit=5000") or []
+        _SHOTS = {str(r.get("product_id")): r for r in rows if r.get("product_id") is not None}
+    return _SHOTS.get(str(product_id))
 
 
 def edited_images(product_id) -> list:
     """Your edited photos for a product (dashboard Photos tab), in slot order,
     skipping slots you removed. Used as the product's photos when it goes live."""
-    rows = _call("GET", f"vj_shots?product_id=eq.{product_id}&select=shots,removed") or []
-    if not rows:
+    row = _shots_row(product_id)
+    if not row:
         return []
-    shots = rows[0].get("shots") or {}
-    removed = {int(x) for x in (rows[0].get("removed") or []) if str(x).lstrip("-").isdigit()}
+    shots = row.get("shots") or {}
+    removed = {int(x) for x in (row.get("removed") or []) if str(x).lstrip("-").isdigit()}
     out = []
     for k in sorted(shots, key=lambda x: int(x) if str(x).isdigit() else 999):
         if str(k).isdigit() and int(k) not in removed and shots[k]:
