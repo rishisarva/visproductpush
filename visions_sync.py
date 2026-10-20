@@ -818,8 +818,16 @@ class Syncer:
                 return cid, imgs
         return None
 
+    # v6.x (21 Oct 2026): TURNED OFF. MS Retro reuses the same title for
+    # different designs (e.g. "Messi Barcelona Five Sleeve Collar Sublimation"
+    # P2164 and P2594 are two different shirts), so copying photos by title put
+    # the wrong jersey on live products. New products now always wait in the
+    # dashboard's Review tab; same-title jerseys are only SUGGESTED there
+    # ("Same jersey → use my photos") and you pick them by hand.
+    AUTO_TWIN = False
+
     def _auto_from_twin(self, product, pid) -> bool:
-        if not self.review_mode or self.dry:
+        if not self.AUTO_TWIN or not self.review_mode or self.dry:
             return False
         twin = self._photo_twin(product, pid)
         if not twin:
