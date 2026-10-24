@@ -1,5 +1,10 @@
 """
-Visions Jersey SEO builder — v2.0 (24 Oct 2026)
+Visions Jersey SEO builder — v2.2 (24 Oct 2026)
+
+v2.2: the SEO pages are no longer a frozen copy of the shop. A small Cloudflare function (functions/seo/…) serves every
+/jersey, /c and /guide page from the LIVE shop page with this page's Google parts put in, so a Netlify deploy shows
+there within a minute. The crawler text stays hidden (shoppers see the shop exactly as before: same layout on
+computer and phone, same loading, no flash), and the page's data is inlined so seo.js adds its parts instantly.
 
 Runs inside vj_images.py on every hourly GitHub sync (after the product list and photos are ready).
 Reads its settings from the shop's own SEO folder: shop.visionsjersey.com/seo/settings.json
@@ -23,7 +28,7 @@ Your edits from the dashboard (Supabase table shop_seo) win over the automatic t
 import datetime, html, json, os, re, shutil, statistics, urllib.request
 
 SHOP = os.environ.get('VJ_SHOP', 'https://shop.visionsjersey.com').rstrip('/')
-VERSION = 'v2.1'
+VERSION = 'v2.2'
 
 # ---------------------------------------------------------------- what the names say
 # Same rules as the shop's own club / player / type pages (index.html CLUB_DEFS / PLAYER_DEFS / TYPES).
@@ -786,24 +791,146 @@ def head_block(title, desc, url, image, brand, extra_ld=(), og_type='website'):
     return t + '\n'.join(ld(x) for x in extra_ld)
 
 
-def make_page(tpl, head, body, foot_html):
+def lazy_imgs(body):
+    """The text copy for crawlers sits in the hidden #pView: its photos must never download for shoppers."""
+    body = re.sub(r'\s(fetchpriority="[^"]*"|loading="[^"]*")', '', body)
+    return re.sub(r'<img(?=[\s>])', '<img loading="lazy"', body)
+
+
+def page_part(head, body, foot_html, dkey, data):
+    """What one page adds to the shop page. The Cloudflare function (seo_function.js) merges it into the LIVE shop
+    page on every visit; make_page() does exactly the same for the ready-made fallback copy."""
+    return {'v': 2, 'head': head, 'body': lazy_imgs(body), 'foot': foot_html or '', 'dkey': dkey, 'data': data}
+
+
+def make_page(tpl, part):
+    """v2.2: the shop page exactly as shoppers know it (its own layout, loading and look). The crawler text goes into
+    #pView but stays hidden (display:none) — the shop draws the real page over it, so nothing flashes or jumps.
+    Keep in step with merge() in seo_function.js."""
     out = tpl
     a, b = out.find('<!--seo:head-->'), out.find('<!--/seo:head-->')
     if a != -1 and b > a:
-        out = out[:a] + '<!--seo:head-->\n' + head + '\n' + out[b:]
+        out = out[:a] + '<!--seo:head-->\n' + part['head'] + '\n' + out[b:]
     else:
         out = re.sub(r'<meta name="description"[^>]*>\s*', '', out, count=1)
-        out = re.sub(r'<title>.*?</title>', lambda m: head, out, count=1, flags=re.S)
-    if foot_html:
-        out = re.sub(r'(<a id="fWa"[^>]*>[^<]*</a>\s*</div>)', lambda m_: m_.group(1) + foot_html, out, count=1)
-    out = re.sub(r'<div id="pView"[^>]*>\s*</div>', lambda m: '<div id="pView" style="display:block">' + body + '</div>', out, count=1)
+        out = re.sub(r'<title>.*?</title>', lambda m: part['head'], out, count=1, flags=re.S)
+    if part.get('foot'):
+        out = re.sub(r'(<a id="fWa"[^>]*>[^<]*</a>\s*</div>)', lambda m_: m_.group(1) + part['foot'], out, count=1)
+    out = re.sub(r'<div id="pView"[^>]*>\s*</div>', lambda m: '<div id="pView" style="display:none">' + part['body'] + '</div>', out, count=1)
+    if part.get('dkey') and part.get('data'):
+        js = json.dumps(part['data'], ensure_ascii=False, separators=(',', ':')).replace('<', '\\u003c')
+        tag = f'<script type="application/json" data-vjs="{part["dkey"]}">{js}</script>'
+        i = out.rfind('</body>')
+        out = out + tag if i == -1 else out[:i] + tag + out[i:]
     return out
+
+
+def write_page(tmp, kind, slug, tpl, part):
+    """seo/<kind>/<slug>.html (ready-made fallback) + seo/part/<kind>/<slug>.json (for the live merge)."""
+    with open(os.path.join(tmp, kind, slug + '.html'), 'w', encoding='utf-8') as fh:
+        fh.write(make_page(tpl, part))
+    pdir = os.path.join(tmp, 'part', kind)
+    os.makedirs(pdir, exist_ok=True)
+    with open(os.path.join(pdir, slug + '.json'), 'w', encoding='utf-8') as fh:
+        json.dump(part, fh, ensure_ascii=False, separators=(',', ':'))
 
 
 def foot_cols(cols):
     """Footer columns in the shop's own footer style (added after Shop / Help)."""
     return ''.join(f'<div class="vjs-fcol"{" id=\"seoFoot\"" if i == 0 else ""}><div class="fh">{e(c["h"])}</div>'
                    + ''.join(f'<a href="{e(l["href"])}">{e(l["a"])}</a>' for l in c['links']) + '</div>' for i, c in enumerate(cols))
+
+# ---------------------------------------------------------------- the Cloudflare function (v2.2)
+SEO_FUNCTION = r'''// Visions Jersey · SEO pages · Cloudflare Pages Function · v2.2 (24 Oct 2026)
+// Written by vj_seo.py on every GitHub sync — do not edit by hand.
+//
+// shop.visionsjersey.com/jersey/…, /c/… and /guide/… are proxied here by Netlify. Instead of a
+// copy of the shop that was frozen at the last sync, every page is the LIVE shop page
+// (shop.visionsjersey.com/, re-read at most once a minute) with this page's Google parts put in:
+// title / description / product data in <head>, the footer columns, a text copy for crawlers that
+// shoppers never see, and the page's data so seo.js draws its parts without waiting.
+// So a new Netlify deploy shows on these pages within a minute — no sync needed.
+// Anything goes wrong → the ready-made page from the last sync is served instead.
+const SHOP = 'https://shop.visionsjersey.com';
+let TPL = '', TPL_AT = 0, TPL_P = null;
+
+function okTpl(t) { return typeof t === 'string' && t.length > 50000 && t.includes('id="pView"') && t.includes('<title>'); }
+
+function loadTpl() {
+  if (!TPL_P) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 4000);
+    TPL_P = fetch(SHOP + '/', { headers: { 'User-Agent': 'VisionsJerseySEO/2.2 (+pages function)' }, signal: ctl.signal })
+      .then((r) => (r.ok ? r.text() : ''))
+      .then((t) => { if (okTpl(t)) { TPL = t; TPL_AT = Date.now(); } return TPL; })
+      .catch(() => TPL)
+      .finally(() => { clearTimeout(timer); TPL_P = null; });
+  }
+  return TPL_P;
+}
+
+async function shopPage(waitUntil) {
+  const age = Date.now() - TPL_AT;
+  if (TPL && age < 60000) return TPL;                                  // fresh enough
+  if (TPL && age < 15 * 60000) { waitUntil(loadTpl()); return TPL; }   // serve now, refresh in the background
+  return loadTpl();                                                     // first request (or very old): wait for it
+}
+
+// The same steps as make_page() in vj_seo.py — keep the two in step.
+export function merge(tpl, part) {
+  let out = tpl;
+  const a = out.indexOf('<!--seo:head-->'), b = out.indexOf('<!--/seo:head-->');
+  if (a !== -1 && b > a) out = out.slice(0, a) + '<!--seo:head-->\n' + part.head + '\n' + out.slice(b);
+  else {
+    out = out.replace(/<meta name="description"[^>]*>\s*/, '');
+    out = out.replace(/<title>[\s\S]*?<\/title>/, () => part.head);
+  }
+  if (part.foot) out = out.replace(/(<a id="fWa"[^>]*>[^<]*<\/a>\s*<\/div>)/, (m) => m + part.foot);
+  out = out.replace(/<div id="pView"[^>]*>\s*<\/div>/, () => '<div id="pView" style="display:none">' + part.body + '</div>');
+  if (part.dkey && part.data) {
+    const js = JSON.stringify(part.data).replace(/</g, '\\u003c');
+    const i = out.lastIndexOf('</body>');
+    const tag = '<script type="application/json" data-vjs="' + part.dkey + '">' + js + '</script>';
+    out = i === -1 ? out + tag : out.slice(0, i) + tag + out.slice(i);
+  }
+  return out;
+}
+
+export async function onRequestGet(context) {
+  const { request, env, params, waitUntil, next } = context;
+  try {
+    const url = new URL(request.url);
+    const kind = url.pathname.split('/')[2];                       // jersey | c | guide
+    const slug = String(params.slug || '').replace(/\.html$/i, '').toLowerCase();
+    if (!/^(jersey|c|guide)$/.test(kind) || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) return next();
+    const [pr, tpl] = await Promise.all([
+      env.ASSETS.fetch(new Request(new URL('/seo/part/' + kind + '/' + slug + '.json', url).toString())),
+      shopPage((p) => waitUntil(p)),
+    ]);
+    if (!okTpl(tpl)) return next();
+    const headers = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=0, must-revalidate', 'x-vj-seo': 'live' };
+    const isJson = pr.status === 200 && (pr.headers.get('content-type') || '').includes('json');
+    if (!isJson) return new Response(tpl, { status: 404, headers });   // no such page: the shop's own "not found" handling
+    const part = await pr.json();
+    return new Response(merge(tpl, part), { status: 200, headers });
+  } catch (e) {
+    return next();
+  }
+}
+'''
+
+
+def write_function(site, say=print):
+    """v2.2: functions/seo/{jersey,c,guide}/[slug].js next to the photo site — serves every SEO page from the LIVE
+    shop page, so a Netlify deploy shows on /jersey, /c and /guide straight away (no sync needed)."""
+    try:
+        base = os.path.join(os.path.dirname(os.path.abspath(site)), 'functions', 'seo')
+        for kind in ('jersey', 'c', 'guide'):
+            os.makedirs(os.path.join(base, kind), exist_ok=True)
+            with open(os.path.join(base, kind, '[slug].js'), 'w', encoding='utf-8') as f:
+                f.write(SEO_FUNCTION)
+    except Exception as ex:  # noqa: BLE001
+        say(f'SEO: live page function not written ({type(ex).__name__}) — the ready-made pages are served')
 
 
 # ---------------------------------------------------------------- photos (+ copies with the jersey's name in the file name)
@@ -888,6 +1015,7 @@ def wjson(path, obj):
 
 def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=None, settings=None):
     """Returns the number of pages written (0 = nothing changed, the last pages stay online)."""
+    write_function(site, say)   # v2.2: always — it also serves the last pages when this build stops early
     def keep_last(msg):
         say(msg)
         nf = os.path.join(site, 'seo', '404.html')
@@ -1065,8 +1193,7 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
         head += f'<meta property="product:price:amount" content="{price:.2f}"><meta property="product:price:currency" content="INR">'
         rel = [r for r in sort_for_page(crumb['prods'] if crumb else feed) if str(r['id']) != pid][:12]
         body = product_html(p, f, pdata, PH.get(pid) or [], rel, img_of, names, buy2)
-        with open(os.path.join(tmp, 'jersey', slug + '.html'), 'w', encoding='utf-8') as fh:
-            fh.write(make_page(tpl, head, body, fblock))
+        write_page(tmp, 'jersey', slug, tpl, page_part(head, body, fblock, 'p/' + slug + '.json', pdata))
         n_prod += 1
         urls.append((url, str(p.get('updated_at') or '')[:10] or today.isoformat(), imgs[:6], 0.8))
         plist.append({'kind': 'product', 'slug': slug, 'id': pid, 'name': p['name'], 'seo_name': nm, 'title': title, 'description': desc,
@@ -1095,8 +1222,7 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
             {'@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': SHOP + '/'}, {'@type': 'ListItem', 'position': 2, 'name': pg['h1']}]}
         head = head_block(pg['title'], pg['description'], url, first, brand, [item_ld, crumbs])
         body = collection_html(cdata, by_id, img_of, names, buy2)
-        with open(os.path.join(tmp, 'c', slug + '.html'), 'w', encoding='utf-8') as fh:
-            fh.write(make_page(tpl, head, body, fblock))
+        write_page(tmp, 'c', slug, tpl, page_part(head, body, fblock, 'c/' + slug + '.json', cdata))
         lastmod = max([str(p.get('updated_at') or '')[:10] for p in prods] + ['']) or today.isoformat()
         urls.append((url, lastmod, [], 0.9 if pg['kind'] in ('club', 'hub', 'price', 'type', 'player') else 0.7))
 
@@ -1115,8 +1241,7 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
             {'@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': SHOP + '/'}, {'@type': 'ListItem', 'position': 2, 'name': g['h1']}]}
         head = head_block(fit_title(gdata['title'], brand), fit_desc(gdata['description']), url, '', brand, [art, crumbs], 'article')
         body = guide_html(gdata, by_id, img_of, names)
-        with open(os.path.join(tmp, 'guide', s + '.html'), 'w', encoding='utf-8') as fh:
-            fh.write(make_page(tpl, head, body, fblock))
+        write_page(tmp, 'guide', s, tpl, page_part(head, body, fblock, 'g/' + s + '.json', gdata))
         urls.append((url, today.isoformat(), [], 0.6))
 
     with open(os.path.join(tmp, '404.html'), 'w', encoding='utf-8') as fh:
