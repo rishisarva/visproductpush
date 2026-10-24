@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visions Jersey photo builder — v1.25 (24 Oct 2026) · every product link in the Meta catalogue carries ?vjd=ig, so people arriving from the catalogue ads get the site's "Instagram deal" (₹ off, 15-minute hold) — nothing to set in Ads Manager; VJ_AD_PARAM="" turns it off · v1.24 (21 Oct 2026) · photo names no longer depend on WHICH Supabase project a dashboard photo is stored in, so moving to a new project keeps every photo name (and the Meta catalogue links) exactly the same — nothing is re-made · v1.23 (19 Oct 2026) · Meta catalogue photos are exactly 3:4 (1080×1440 JPEG, "-m34.jpg"): a small difference is trimmed from the edges, a bigger one (square photos) is filled with a blurred copy of the same photo so the jersey is never cut · v1.21 (3 Oct 2026) · two suppliers: shows only the ACTIVE one (VJ_ACTIVE = TS or MS, from supplier.txt); Thayyil products get live stock (checker &s=ts); the other supplier is never treated as leftovers · v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
+Visions Jersey photo builder — v1.26 (24 Oct 2026) · SEO: also runs vj_seo.py v2 — ready-made Google pages for every jersey, collection and guide (seo/), photo copies named after the jersey (img/), sitemap and Google Shopping feed, all driven by the shop's seo/settings.json; if that step fails, the last pages stay online and nothing else is affected · v1.25 (24 Oct 2026) · every product link in the Meta catalogue carries ?vjd=ig, so people arriving from the catalogue ads get the site's "Instagram deal" (₹ off, 15-minute hold) — nothing to set in Ads Manager; VJ_AD_PARAM="" turns it off · v1.24 (21 Oct 2026) · photo names no longer depend on WHICH Supabase project a dashboard photo is stored in, so moving to a new project keeps every photo name (and the Meta catalogue links) exactly the same — nothing is re-made · v1.23 (19 Oct 2026) · Meta catalogue photos are exactly 3:4 (1080×1440 JPEG, "-m34.jpg"): a small difference is trimmed from the edges, a bigger one (square photos) is filled with a blurred copy of the same photo so the jersey is never cut · v1.21 (3 Oct 2026) · two suppliers: shows only the ACTIVE one (VJ_ACTIVE = TS or MS, from supplier.txt); Thayyil products get live stock (checker &s=ts); the other supplier is never treated as leftovers · v1.20 (1 Oct 2026) · pre-book / pre-order products are dropped from the shop list, the Meta catalogue and shop_products · v1.19 · checker also returns MS Retro's own product title (for the dashboard's Copy details) · v1.18: checker asks MS Retro's cart far less: remembers every answer (plenty 30 min, 2–4 left 10 min, 0–1 left 5 min) and asks one size at a time · v1.17: checker backs off for 5 minutes when MS Retro says 'too many attempts' (429) instead of retrying on every visit · v1.16: checker reads quantities from BOTH Shopify answers (error 'only add N' or OK with a capped quantity), never mistakes a year in the title for a count, &debug=1 shows MS Retro's raw reply · v1.15: live checker learns exact pieces left from Shopify's cart limit (MS Retro publishes no counts): low sizes (≤2) always, full counts with &full=1 · v1.14: live checker also returns per-size QUANTITIES when MS Retro's data has them (qty) · v1.13: also DELETES removed leftovers (old Thayyil) at the source: shop_products rows + the plugin's Supabase product list and Meta catalogue · v1.12: the product list and Meta catalogue on Cloudflare keep ONLY MS Retro products (removed Thayyil leftovers are dropped) · v1.11: adds the LIVE stock checker (vj-images.pages.dev/stock?h=…, asks MS Retro right now) and tells the shop which MS Retro product each item is · v1.10: product details also come from MS Retro's TAGS (their grey labels), not only the description · v1.9: adds MS Retro's product details (from their description) to the Cloudflare product list, shown on product pages · v1.8: also publishes the Meta catalogue (meta-products.csv) on Cloudflare with every photo link pointing to Cloudflare JPEGs, so Meta stops downloading full-size photos from Supabase · v1.7: also publishes the product list (shop-products.json) to Cloudflare, so shoppers stop downloading it from Supabase · v1.6: on GitHub: 2 photos at a time + 3 retries when the image proxy refuses (fixes the 124 failed photos) · v1.5: a failed upload now turns the GitHub run RED instead of green · v1.4: runs in the visproductpush repo (GitHub Actions) with its existing SUPABASE_URL / SUPABASE_KEY secrets; downloads full-size originals and falls back to images.weserv.nl when WordPress blocks GitHub (same as image_cdn.py)
 
 What it does, every time you run it:
   1. Reads your live product list (the same one the shop uses).
@@ -623,11 +623,27 @@ def build(token):
     with open(os.path.join(SITE, 'map.json'), 'w') as f:
         json.dump(photo_map, f, separators=(',', ':'))
     meta_catalogue(feed, photo_map, keep={str(p.get('id', '')) for p in feed} if handles else None)
+    # v1.26: the SEO pages (vj_seo.py). Never allowed to stop the photos / product list.
+    try:
+        import vj_seo
+        with open(os.path.join(SITE, 'feeds', 'shop-products.json'), 'rb') as f:
+            seo_feed = json.loads(f.read())
+        vj_seo.build(SITE, seo_feed, photo_map, PUBLIC, say, SUPA, SERVICE or None)
+    except Exception as e:  # noqa: BLE001
+        say(f'SEO pages not rebuilt this time ({type(e).__name__}: {e}) — the last ones stay online')
     with open(os.path.join(SITE, '_headers'), 'w') as f:
         f.write('/p/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'
                 '/r/*\n  Cache-Control: public, max-age=31536000, immutable\n  Access-Control-Allow-Origin: *\n'   # v1.22 review photos
                 '/map.json\n  Cache-Control: public, max-age=300\n  Access-Control-Allow-Origin: *\n'
-                '/feeds/*\n  Cache-Control: public, max-age=120\n  Access-Control-Allow-Origin: *\n')
+                '/feeds/*\n  Cache-Control: public, max-age=120\n  Access-Control-Allow-Origin: *\n'
+                # v1.26 SEO pages: HTML always fresh; the lists the shop / dashboard read are shared with them
+                '/seo/jersey/*\n  Cache-Control: public, max-age=0, must-revalidate\n'
+                '/seo/c/*\n  Cache-Control: public, max-age=0, must-revalidate\n'
+                '/seo/404.html\n  Cache-Control: public, max-age=0, must-revalidate\n'
+                '/seo/guide/*\n  Cache-Control: public, max-age=0, must-revalidate\n'
+                '/seo/sitemap.xml\n  Cache-Control: public, max-age=3600\n'
+                '/img/*\n  Cache-Control: public, max-age=86400\n  Access-Control-Allow-Origin: *\n'
+                '/seo/data/*\n  Cache-Control: public, max-age=120\n  Access-Control-Allow-Origin: *\n')
     with open(os.path.join(SITE, 'index.html'), 'w') as f:
         f.write('<!doctype html><title>Visions Jersey photos</title><p>Photo files for shop.visionsjersey.com</p>')
     total = sum(len(v) for v in photo_map.values())
@@ -714,7 +730,20 @@ def fingerprint():
         fp = os.path.join(SITE, 'feeds', name)
         feed += open(fp, 'rb').read() if os.path.exists(fp) else b''
     feed += STOCK_FUNCTION.encode()      # a new checker version also counts as "something new"
-    return hashlib.sha1((open(os.path.join(SITE, 'map.json')).read() + '|'.join(files)).encode() + feed).hexdigest()
+    # v1.26: the SEO pages and the Google Shopping feed count too (pages.json only carries the build time)
+    seo = hashlib.sha1()
+    for root, _dirs, names in sorted(os.walk(os.path.join(SITE, 'seo'))):
+        for name in sorted(names):
+            if not (name == 'pages.json' and root.endswith('data')):
+                with open(os.path.join(root, name), 'rb') as f:
+                    seo.update(name.encode() + hashlib.sha1(f.read()).digest())
+    imgd = os.path.join(SITE, 'img')
+    if os.path.isdir(imgd):
+        seo.update('|'.join(sorted(os.listdir(imgd))).encode())
+    gp = os.path.join(SITE, 'feeds', 'google-products.xml')
+    if os.path.exists(gp):
+        seo.update(open(gp, 'rb').read())
+    return hashlib.sha1((open(os.path.join(SITE, 'map.json')).read() + '|'.join(files)).encode() + feed + seo.digest()).hexdigest()
 
 
 def deploy():
@@ -780,7 +809,7 @@ def remove_auto():
 
 
 def main():
-    say('Visions Jersey photo builder v1.22' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
+    say('Visions Jersey photo builder v1.26' + (' (GitHub Actions run)' if CI else ' (automatic run)' if AUTO else '') + '\n')
     if '--install-auto' in sys.argv:
         return install_auto()
     if '--remove-auto' in sys.argv:
