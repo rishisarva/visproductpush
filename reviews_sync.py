@@ -13,6 +13,11 @@ the dashboard (More → Reviews). This script, run by the hourly sync:
   4. writes the photo site files (VJ_HOME/site/r/*.jpg + feeds/reviews.json),
      which vj_images.py then uploads to Cloudflare with the product photos
 
+v3 (24 Oct 2026): also writes small WebP copies of every card and photo — r/s/<name>.webp (360 px wide, ~20 KB, the
+review strip) and r/m/<name>.webp (720 px, the pop-up) — and lists them in reviews.json (card_s / card_m / images_s /
+images_m). The shop shows those straight from Cloudflare instead of sending each full 1080x1920 card (~300 KB)
+through the free image proxy, which is what made the review photos slow.
+
 The shop reads https://vj-images.pages.dev/feeds/reviews.json (newest first,
 the site shuffles them). Needs SUPABASE_URL + SUPABASE_KEY (service role).
 """
@@ -270,24 +275,65 @@ def clear_rejected():
     return len(rows)
 
 
+SMALL = {"s": (360, 70), "m": (720, 78)}     # v3: folder -> (width, WebP quality)
+
+
+def small_name(f):
+    return os.path.splitext(f)[0] + ".webp"
+
+
+def make_small(src, folder, f):
+    """r/<folder>/<name>.webp from the repo photo; made once (the photo site folder is kept between runs)."""
+    w, q = SMALL[folder]
+    dst = os.path.join(SITE, "r", folder, small_name(f))
+    if os.path.exists(dst) and os.path.getsize(dst) > 0:
+        return True
+    try:
+        im = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
+        if im.width > w:
+            im = im.resize((w, round(im.height * w / im.width)), Image.LANCZOS)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        im.save(dst, "WEBP", quality=q, method=6)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"   small copy of {f} not made ({exc})")
+        return False
+
+
 def write_site(items):
-    """Photo site files for Cloudflare: /r/<file>.jpg and /feeds/reviews.json."""
+    """Photo site files for Cloudflare: /r/<file>.jpg, /r/s|m/<file>.webp and /feeds/reviews.json."""
     rdir = os.path.join(SITE, "r")
     os.makedirs(rdir, exist_ok=True)
     os.makedirs(os.path.join(SITE, "feeds"), exist_ok=True)
-    wanted = set()
+    wanted, small_ok = set(), set()
     for it in items:
         for f in list(it["images"]) + ([it["card"]] if it.get("card") else []):
             wanted.add(f)
             src, dst = os.path.join(REPO_DIR, f), os.path.join(rdir, f)
             if os.path.exists(src) and (not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(src)):
                 shutil.copyfile(src, dst)
+            if os.path.exists(src) and all(make_small(src, d, f) for d in SMALL):
+                small_ok.add(f)
     for f in os.listdir(rdir):
-        if f not in wanted:
+        if os.path.isfile(os.path.join(rdir, f)) and f not in wanted:
             os.remove(os.path.join(rdir, f))
+    keep_small = {small_name(f) for f in small_ok}
+    for d in SMALL:
+        sd = os.path.join(rdir, d)
+        for f in (os.listdir(sd) if os.path.isdir(sd) else []):
+            if f not in keep_small:
+                os.remove(os.path.join(sd, f))
+
+    def sm(f, d):
+        return f"/r/{d}/{small_name(f)}" if f in small_ok else None
+
     feed = [{"id": it["id"], "name": it["name"], "caption": it["caption"], "at": it["at"],
              "card": ("/r/" + it["card"]) if it.get("card") else None,
-             "images": ["/r/" + f for f in it["images"]]} for it in items]
+             "card_s": sm(it["card"], "s") if it.get("card") else None,
+             "card_m": sm(it["card"], "m") if it.get("card") else None,
+             "images": ["/r/" + f for f in it["images"]],
+             "images_s": [sm(f, "s") for f in it["images"]],
+             "images_m": [sm(f, "m") for f in it["images"]]} for it in items]
     json.dump(feed, open(os.path.join(SITE, "feeds", "reviews.json"), "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
 
 
