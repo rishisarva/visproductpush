@@ -1,5 +1,8 @@
 """
-Visions Jersey SEO builder — v2.2 (24 Oct 2026)
+Visions Jersey SEO builder — v2.3 (24 Oct 2026)
+
+v2.3: collection data also carries the full product order ("all") and the matching shop filter ("shop") for the new
+collection page (filters, sort, show more, "see more in the shop").
 
 v2.2: the SEO pages are no longer a frozen copy of the shop. A small Cloudflare function (functions/seo/…) serves every
 /jersey, /c and /guide page from the LIVE shop page with this page's Google parts put in, so a Netlify deploy shows
@@ -28,7 +31,7 @@ Your edits from the dashboard (Supabase table shop_seo) win over the automatic t
 import datetime, html, json, os, re, shutil, statistics, urllib.request
 
 SHOP = os.environ.get('VJ_SHOP', 'https://shop.visionsjersey.com').rstrip('/')
-VERSION = 'v2.2'
+VERSION = 'v2.3'
 
 # ---------------------------------------------------------------- what the names say
 # Same rules as the shop's own club / player / type pages (index.html CLUB_DEFS / PLAYER_DEFS / TYPES).
@@ -988,6 +991,25 @@ BOOT = ('<!doctype html><meta charset="utf-8"><title>Visions Jersey</title><scri
         '.catch(function(){location.replace("/")})</script>')
 
 
+SHOP_TYPE_KEYS = ('newseason', 'retro', 'fullsleeve', 'fivesleeve', 'embroidery', 'sublimation', 'player', 'polo')
+
+
+def shop_link(rule, kind=''):
+    """v2.3: the shop's own filter for a collection (/shop?club=…&type=…&q=…&max=…) — the "See more" button."""
+    import urllib.parse as _u
+    q = {}
+    if rule.get('club'):
+        q['club'] = rule['club']
+    if rule.get('player'):
+        q['q'] = rule['player'].lower()
+    t = 'newseason' if rule.get('newseason') else next((x for x in (rule.get('types') or []) if x in SHOP_TYPE_KEYS), None)
+    if t:
+        q['type'] = t
+    if rule.get('max'):
+        q['max'] = int(rule['max'])
+    return '/shop' + ('?' + _u.urlencode(q) if q else '')
+
+
 def fetch(url, timeout=30):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
         return r.read().decode('utf-8', 'replace')
@@ -1210,7 +1232,9 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
         cdata = {'slug': slug, 'kind': pg['kind'], 'title': pg['title'], 'description': pg['description'], 'h1': pg['h1'], 'intro': pg['intro'], 'sub': pg.get('sub', ''),
                  'sections': pg['sections'], 'faq': pg['faq'], 'buy2note': bool(pg.get('buy2note')),
                  'rel': [{'slug': x['slug'], 'a': x['h1']} for x in rel[:8]],
-                 'guides': [{'slug': g, 'h1': guides[g]['h1']} for g in pguides]}
+                 'guides': [{'slug': g, 'h1': guides[g]['h1']} for g in pguides],
+                 # v2.3: the whole list in page order (sort "Popular"), and the matching /shop filter for "See more"
+                 'all': [str(p['id']) for p in prods], 'shop': shop_link(pg.get('rule') or {}, pg['kind'])}
         wjson(os.path.join(tmp, 'data', 'c', slug + '.json'), cdata)
         first = img_of(prods[0], 0, 'jpg') if prods else ''
         item_ld = {'@context': 'https://schema.org', '@type': 'CollectionPage', 'name': pg['h1'], 'url': url, 'description': pg['description'],
