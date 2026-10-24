@@ -23,7 +23,7 @@ Your edits from the dashboard (Supabase table shop_seo) win over the automatic t
 import datetime, html, json, os, re, shutil, statistics, urllib.request
 
 SHOP = os.environ.get('VJ_SHOP', 'https://shop.visionsjersey.com').rstrip('/')
-VERSION = 'v2.0'
+VERSION = 'v2.1'
 
 # ---------------------------------------------------------------- what the names say
 # Same rules as the shop's own club / player / type pages (index.html CLUB_DEFS / PLAYER_DEFS / TYPES).
@@ -271,10 +271,6 @@ def product_specs(p, f, buy2):
         rows.append(('Fit', str(fit)))
     if fabric:
         rows.append(('Fabric', str(fabric)))
-    rows.append(('Sizes in stock', ', '.join(sizes) if sizes else 'Out of stock right now'))
-    rows.append(('Delivery', 'Free shipping in India · dispatched in 24-48 hours'))
-    if buy2:
-        rows.append(('Offer', f'Buy any 2 jerseys, get ₹{buy2} off'))
     return rows
 
 
@@ -292,16 +288,10 @@ def about_text(p, f, name, buy2):
     elif f['finish'] == 'Sublimation':
         s2 = ' The design is printed into the fabric, so it stays light and the colours do not crack or peel.'
     if f['collar']:
-        s2 += ' The collar gives it a smart look for everyday wear.'
-    if f['sleeve'] == 'Five Sleeve':
-        s2 += ' Five sleeve means longer, looser sleeves that reach the elbow and a relaxed fit.'
-    sizes = [s.get('size') for s in (p.get('sizes') or []) if s.get('in_stock')]
-    s3 = (f' Sizes in stock right now: {", ".join(sizes)} — our jerseys run slightly fitted, so pick one size up from your usual.' if sizes
-          else ' It is out of stock right now — check back soon.')
-    s4 = ' Free shipping anywhere in India, dispatched within 24-48 hours with a tracking ID.'
-    if buy2:
-        s4 += f' Buy any 2 jerseys and ₹{buy2} comes off automatically.'
-    return (s1 + s2 + s3 + s4).strip()
+        s2 += ' The collar gives it a smart look for everyday wear.' if not s2 else ''
+    if f['sleeve'] == 'Five Sleeve' and not s2:
+        s2 = ' Five sleeve means longer, looser sleeves that reach the elbow and a relaxed fit.'
+    return (s1 + s2).strip()
 
 
 # ---------------------------------------------------------------- keywords → rules → pages
@@ -501,11 +491,11 @@ def build_pages(feed, F, S, buy2, overrides, say):
         rec['matches'] = len(m)
         pg = pages.get(target) if target else None
         if pg is None and target and m:
-            pg = add(target, 'keyword', tcase(text), tcase(re.sub(r'\bjersey\b', 'jerseys', text)), r, m)
+            pg = add(target, 'keyword', tcase(text), (rule_title(r) or tcase(re.sub(r'\bjersey\b', 'jerseys', text))), r, m)
         if pg is None:
             pg = by_rule.get(rule_key(r))
         if pg is None and m and len(m) >= kw_min and rec['n'] >= 1000:
-            pg = add(slugify(text), 'keyword', tcase(text), tcase(re.sub(r'\bjersey\b', 'jerseys', text)), r, m)
+            pg = add(slugify(text), 'keyword', tcase(text), (rule_title(r) or tcase(re.sub(r'\bjersey\b', 'jerseys', text))), r, m)
             if pg:
                 by_rule[rule_key(r)] = pg
         how = 'page'
@@ -524,6 +514,30 @@ def build_pages(feed, F, S, buy2, overrides, say):
         rec.update(page=pg['slug'], how='main keyword' if same else how if how == 'section' else 'section')
         kw_out.append(rec)
     return {s: p for s, p in pages.items() if p.get('active', True)}, kw_out
+
+
+TYPE_LABEL = {'fullsleeve': 'Full Sleeve', 'fivesleeve': 'Five Sleeve', 'retro': 'Retro', 'embroidery': 'Embroidery',
+              'sublimation': 'Sublimation', 'player': 'Player Version', 'polo': 'Collar'}
+
+
+def rule_title(r):
+    parts = []
+    if r.get('color'):
+        parts.append(r['color'].title())
+    if r.get('player'):
+        parts.append(r['player'])
+    if r.get('club'):
+        parts.append(r['club'])
+    if r.get('newseason'):
+        parts.append('2026-27')
+    if r.get('year'):
+        parts.append(r['year'])
+    if r.get('kit'):
+        parts.append(r['kit'].title())
+    parts += [TYPE_LABEL[t] for t in r.get('types', []) if t in TYPE_LABEL]
+    if r.get('max'):
+        parts.append(f'Under ₹{int(round(float(r["max"]) - 49.99)) if float(r["max"]) % 50 else int(r["max"])}')
+    return ' '.join(parts + ['Jerseys']) if parts else ''
 
 
 def page_text(pg, F, buy2, brand):
@@ -559,9 +573,9 @@ def page_text(pg, F, buy2, brand):
             auto_secs.append({'kw': f'{pg["kw"].replace(" Jersey", "")} {label} jersey', 'rule': r, 'n': 0})
     for k in cands + auto_secs:
         ids = [str(p['id']) for p in prods if str(p['id']) not in used and match(k['rule'], F[str(p['id'])])]
-        if len(ids) < (1 if k in cands else 2) or len(ids) == n or len(secs) >= 6:
+        if len(ids) < 2 or len(ids) == n or len(secs) >= 6:
             continue
-        h2 = tcase(re.sub(r'\bjersey\b', 'jerseys', k['kw']))
+        h2 = rule_title(k['rule']) or tcase(re.sub(r'\bjersey\b', 'jerseys', k['kw']))
         if any(s['h2'].lower() == h2.lower() for s in secs):
             continue
         used.update(ids)
@@ -598,11 +612,7 @@ def page_text(pg, F, buy2, brand):
         intro = f'Shop {n} {pl if pg["kind"] != "hub" else "football jerseys"} online in India, priced {rng}.'
         if what:
             intro += f' The range covers {join_words(what)}' + (f', in {join_words([s.lower() for s in sleeves])}' if sleeves else '') + '.'
-        if others:
-            intro += f' Looking for {"an" if others[0][:1].lower() in "aeiou" else "a"} {join_words(others).replace(" and ", " or ")}? Each has its own section below.'
-        intro += ' Every kit is checked before it is packed, ships free anywhere in India and is dispatched within 24-48 hours.'
-        if buy2:
-            intro += f' Buy any 2 and ₹{buy2} comes off automatically.'
+        intro += ' Free shipping anywhere in India, dispatched within 24-48 hours' + (f' — buy any 2 and ₹{buy2} comes off.' if buy2 else '.')
     kwl = low(primary)
     q1 = f'How much do football jerseys cost at {brand}?' if pg['kind'] in ('price', 'hub') else \
         f'What is the price of {"an" if kwl[:1].lower() in "aeiou" else "a"} {kwl} at {brand}?'
@@ -620,6 +630,7 @@ def page_text(pg, F, buy2, brand):
     pg['intro'] = pg.get('o_intro') or intro
     pg['faq'] = faq
     pg['min'] = lo
+    pg['sub'] = f'{n} design{"s" if n != 1 else ""} · from {money(lo)} · Free shipping'
     return pg
 
 
@@ -771,7 +782,7 @@ def head_block(title, desc, url, image, brand, extra_ld=(), og_type='website'):
          f'<meta property="og:url" content="{e(url)}"><meta property="og:locale" content="en_IN">'
          + (f'<meta property="og:image" content="{e(image)}"><meta name="twitter:image" content="{e(image)}">' if image else '')
          + f'<meta name="twitter:card" content="summary_large_image">\n'
-         '<style>html.lp #lskel{display:none!important}</style><noscript><style>#home{display:none}</style></noscript>\n')
+         '<link rel="stylesheet" href="/seo/seo.css"><style>html.lp #lskel{display:none!important}</style><noscript><style>#home{display:none}</style></noscript>\n')
     return t + '\n'.join(ld(x) for x in extra_ld)
 
 
@@ -784,18 +795,15 @@ def make_page(tpl, head, body, foot_html):
         out = re.sub(r'<meta name="description"[^>]*>\s*', '', out, count=1)
         out = re.sub(r'<title>.*?</title>', lambda m: head, out, count=1, flags=re.S)
     if foot_html:
-        out = out.replace('<div class="ftrust">', foot_html + '\n    <div class="ftrust">', 1)
+        out = re.sub(r'(<a id="fWa"[^>]*>[^<]*</a>\s*</div>)', lambda m_: m_.group(1) + foot_html, out, count=1)
     out = re.sub(r'<div id="pView"[^>]*>\s*</div>', lambda m: '<div id="pView" style="display:block">' + body + '</div>', out, count=1)
     return out
 
 
-def foot_block(links, guides):
-    """Popular searches + guides in the footer: links Google follows from every page."""
-    return ('<div class="fpop" id="seoFoot"><div class="fh">Popular searches</div><div class="fpop-l">'
-            + ''.join(f'<a href="{e(h)}">{e(a)}</a>' for a, h in links) + '</div>'
-            + (('<div class="fh" style="margin-top:12px">Guides</div><div class="fpop-l">'
-                + ''.join(f'<a href="/guide/{e(g["slug"])}">{e(g["h1"])}</a>' for g in guides) + '</div>') if guides else '')
-            + '</div>')
+def foot_cols(cols):
+    """Footer columns in the shop's own footer style (added after Shop / Help)."""
+    return ''.join(f'<div class="vjs-fcol"{" id=\"seoFoot\"" if i == 0 else ""}><div class="fh">{e(c["h"])}</div>'
+                   + ''.join(f'<a href="{e(l["href"])}">{e(l["a"])}</a>' for l in c['links']) + '</div>' for i, c in enumerate(cols))
 
 
 # ---------------------------------------------------------------- photos (+ copies with the jersey's name in the file name)
@@ -909,7 +917,8 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
     except Exception:
         pass
     overrides = load_overrides(supa, key, say)
-    feed = [p for p in feed if p.get('id') and p.get('name')]
+    # a jersey with no photo is left out everywhere (the shop hides it too)
+    feed = [p for p in feed if p.get('id') and p.get('name') and any(u and not str(u).startswith('data:') for u in (p.get('images') or []))]
     F = {str(p['id']): facets(p) for p in feed}
     F_CACHE.clear()
     F_CACHE.update(F)
@@ -944,16 +953,26 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
         r = lst[min(i, len(lst) - 1)]
         return r.get('nwebp' if kind == 'lg' else 'njpg' if kind == 'jpg' else 'sm') or r[kind if kind != 'jpg' else 'jpg']
 
-    # footer: boosted pages first, then the biggest clubs and players
-    foot = [p for p in pages.values() if p.get('boost')] + sorted([p for p in pages.values() if p['kind'] in ('club', 'player', 'keyword')],
-                                                                  key=lambda p: -len(p['prods']))
-    seen, flinks = set(), []
-    for p in foot:
-        if p['slug'] not in seen and len(flinks) < 24:
-            seen.add(p['slug'])
-            flinks.append((p.get('primary') or p['kw'], '/c/' + p['slug']))
+    # footer: four short columns like any shop's footer — biggest searches first, pushed pages always in
+    def top(kind, k):
+        ps = [p for p in pages.values() if p['kind'] == kind]
+        ps.sort(key=lambda p: (not p.get('boost'), -max([x['n'] for x in p['kws']] + [0]), -len(p['prods'])))
+        return ps[:k]
+    short = lambda p: re.sub(r'\s*Jerseys?$', '', p['h1']).strip() or p['h1']
+    coll_order = ['new-season-2026-27-football-jerseys', 'retro-football-jerseys', 'full-sleeve-football-jerseys', 'five-sleeve-football-jerseys',
+                  'player-version-jerseys', 'football-jerseys-under-500']
+    coll_name = {'new-season-2026-27-football-jerseys': 'New season 2026-27', 'retro-football-jerseys': 'Retro jerseys',
+                 'full-sleeve-football-jerseys': 'Full sleeve', 'five-sleeve-football-jerseys': 'Five sleeve',
+                 'player-version-jerseys': 'Player version', 'football-jerseys-under-500': 'Under ₹500 (buy 2)'}
+    gname = {'football-jersey-size-chart-india': 'Size chart', 'player-version-vs-fan-version-jersey': 'Player vs fan version',
+             'embroidery-vs-sublimation-jersey': 'Embroidery vs sublimation', 'what-is-a-five-sleeve-jersey': 'What is five sleeve?'}
+    fcols = [{'h': 'Shop by club', 'links': [{'a': short(p), 'href': '/c/' + p['slug']} for p in top('club', 6)]},
+             {'h': 'Players', 'links': [{'a': short(p), 'href': '/c/' + p['slug']} for p in top('player', 5)]},
+             {'h': 'Collections', 'links': [{'a': coll_name[s], 'href': '/c/' + s} for s in coll_order if s in pages]},
+             {'h': 'Guides', 'links': [{'a': gname.get(s, g['h1']), 'href': '/guide/' + s} for s, g in list(guides.items())[:4]]}]
+    fcols = [c for c in fcols if c['links']]
     glist = [{'slug': s, 'h1': g['h1']} for s, g in guides.items()]
-    fblock = foot_block(flinks, glist)
+    fblock = foot_cols(fcols)
 
     tmp = os.path.join(site, 'seo.new')
     shutil.rmtree(tmp, ignore_errors=True)
@@ -991,37 +1010,34 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
                 break
         if crumb is None:
             crumb = next((pages[TYPES[t][1]] for t in ('retro', 'newseason', 'player', 'fivesleeve', 'fullsleeve') if t in f['types'] and TYPES[t][1] in pages), None)
-        # "Popular searches" on the product page: researched keywords this jersey answers, linked to their page
+        # "Related searches" under the jersey: the pages (and sections) for the keywords this jersey answers
         links, seen_h = [], set()
         for bp in boosted:            # pages you push get a link from every jersey they list
-            if bp['kind'] != 'hub' and match(bp['rule'], f) and len(links) < 3:
+            if bp['kind'] != 'hub' and match(bp['rule'], f) and len(links) < 2 and (not crumb or bp['slug'] != crumb['slug']):
                 seen_h.add('/c/' + bp['slug'])
-                links.append(((bp.get('primary') or bp['kw']).lower(), '/c/' + bp['slug']))
+                links.append((bp['h1'], '/c/' + bp['slug']))
         for k in sorted(kw_for_products, key=lambda k: -k['n']):
             r = kw_rule(k['kw'], buy2)
             if not r or not match(r, f):
                 continue
-            href = '/c/' + k['page'] + ('' if k['how'] in ('main keyword', 'page') else '#' + slugify(k['kw']))
-            if href in seen_h:
+            tp = pages[k['page']]
+            sec = next((s_ for s_ in tp.get('sections', []) if s_.get('kw') == k['kw']), None) if k['how'] == 'section' else None
+            href = '/c/' + k['page'] + ('#' + sec['id'] if sec else '')
+            if href in seen_h or (crumb and href == '/c/' + crumb['slug']):
                 continue
             seen_h.add(href)
-            links.append((k['kw'], href))
-            if len(links) >= 8:
+            links.append((sec['h2'] if sec else tp['h1'], href))
+            if len(links) >= 6:
                 break
         guide = next((GUIDE_FOR[t] for t in ('fivesleeve', 'player', 'embroidery', 'sublimation', 'retro') if t in f['types'] and GUIDE_FOR[t] in guides), None)
         specs = product_specs(p, f, buy2)
         about = about_text(p, f, nm, buy2)
-        faq = [(f'Is the {nm} a player version or a fan version?',
-                'It is the player version: slim fit, light fabric, cut like the shirt worn on the pitch — size up if you are between sizes.'
-                if 'player' in f['types'] else
-                'It is a fan version: a regular, comfortable fit made for everyday wear. Order one size larger than your usual T-shirt.'),
-               (f'Which sizes are available for the {nm}?',
-                (f'In stock right now: {", ".join(sizes)}. ' if sizes else 'It is out of stock right now. ')
-                + 'Our jerseys run slightly fitted — between two sizes, choose the bigger one. The size chart guide has chest and length in inches.')]
+        faq = []
         pdata = {'id': pid, 'title': title, 'description': desc, 'name': nm, 'specs': specs, 'about': about, 'faq': faq,
                  'crumb': {'slug': crumb['slug'], 'h1': crumb['h1']} if crumb else None,
                  'links': [{'a': a, 'href': h} for a, h in links],
                  'guide': {'slug': guide, 'h1': guides[guide]['h1']} if guide else None,
+                 'crumb_label': (crumb['h1'] if crumb else ''),
                  'size_guide': 'football-jersey-size-chart-india' if 'football-jersey-size-chart-india' in guides else None,
                  'alt': nm, 'img': img_of(p, 0, 'jpg')}
         wjson(os.path.join(tmp, 'data', 'p', slug + '.json'), pdata)
@@ -1064,9 +1080,9 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
         rel = related_pages(pg, pages)
         pguides = [g for g in ([GUIDE_FOR.get(pg.get('type'))] + (['football-jersey-size-chart-india'] if pg['kind'] in ('club', 'player') else []))
                    if g and g in guides]
-        cdata = {'slug': slug, 'kind': pg['kind'], 'title': pg['title'], 'description': pg['description'], 'h1': pg['h1'], 'intro': pg['intro'],
+        cdata = {'slug': slug, 'kind': pg['kind'], 'title': pg['title'], 'description': pg['description'], 'h1': pg['h1'], 'intro': pg['intro'], 'sub': pg.get('sub', ''),
                  'sections': pg['sections'], 'faq': pg['faq'], 'buy2note': bool(pg.get('buy2note')),
-                 'rel': [{'slug': x['slug'], 'a': x.get('primary') or x['kw']} for x in rel],
+                 'rel': [{'slug': x['slug'], 'a': x['h1']} for x in rel[:8]],
                  'guides': [{'slug': g, 'h1': guides[g]['h1']} for g in pguides]}
         wjson(os.path.join(tmp, 'data', 'c', slug + '.json'), cdata)
         first = img_of(prods[0], 0, 'jpg') if prods else ''
@@ -1106,7 +1122,7 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
     with open(os.path.join(tmp, '404.html'), 'w', encoding='utf-8') as fh:
         fh.write(tpl)
     home = S.get('home') or {}
-    wjson(os.path.join(tmp, 'data', 'index.json'), {'home': home, 'foot': [{'a': a, 'href': h} for a, h in flinks], 'guides': glist,
+    wjson(os.path.join(tmp, 'data', 'index.json'), {'home': home, 'cols': fcols, 'guides': glist,
                                                     'pages': {s: p['h1'] for s, p in pages.items()}})
     kstat = {}
     for k in kw_out:
@@ -1143,72 +1159,73 @@ def build(site, feed, photo_map, public, say=print, supa=None, key=None, tpl=Non
 
 
 def product_html(p, f, d, photos_, rel, img_of, names, buy2):
+    """The jersey page as Google first sees it — the same layout the shop draws (seo.js adds the
+    same "Jersey details" panel and related searches to the live page)."""
     lazy, first = 'loading="lazy"', 'fetchpriority="high"'
     gal = ''.join(f'<img src="{e(x.get("nwebp") or x["lg"])}" alt="{e(d["alt"])}{"" if not i else " – photo " + str(i + 1)}" width="700" height="770" '
                   f'{lazy if i else first} decoding="async">' for i, x in enumerate(photos_ or [{'lg': ''}]))
     price = f['price']
     sizes = p.get('sizes') or []
     cr = d.get('crumb')
-    return (f'<div style="padding:9px 14px"><a href="/shop" style="font-size:13px;font-weight:700;color:var(--mut);text-decoration:none">← Back to shop</a></div>'
-            f'<div class="gal" id="gal">{gal}</div><div class="pinfo" style="padding:0 14px 14px">'
-            f'<nav class="crumbs seo-crumb"><a href="/">Home</a> › ' + (f'<a href="/c/{e(cr["slug"])}">{e(cr["h1"])}</a> › ' if cr else '') + f'{e(d["name"])}</nav>'
-            f'<div class="cat-lbl">JERSEY</div><h1 style="font-size:19px;font-weight:800;line-height:1.3;margin:4px 0 8px">{e(p["name"])}</h1>'
+    lbl = (f'<a href="/c/{e(cr["slug"])}">{e(cr["h1"])}</a>' if cr else 'Jersey')
+    return (f'<div class="gal" id="gal">{gal}</div><div class="pinfo" style="padding:0 14px 14px">'
+            f'<div class="cat-lbl vjs-lbl">{lbl}</div><h1 style="font-size:19px;font-weight:800;line-height:1.3;margin:4px 0 8px">{e(p["name"])}</h1>'
             f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:25px;font-weight:900">{money(price)}</span>'
             f'<span style="font-size:14px;color:var(--mut);text-decoration:line-through">{money(round(price * 1.6))}</span></div>'
             + (f'<div class="buy2tag">🎁 <b>Buy any 2 jerseys, get ₹{buy2} off</b> — applied automatically at checkout</div>' if buy2 else '')
-            + (f'<div style="font-weight:700;font-size:13px;margin:10px 0 7px">Sizes</div><div id="szs">'
+            + (f'<div style="font-weight:700;font-size:13px;margin:10px 0 7px">Select size</div><div id="szs">'
                + ''.join(f'<span class="sz {"" if s.get("in_stock") else "out"}">{e(s.get("size"))}</span>' for s in sizes) + '</div>' if sizes else '')
-            + '</div>' + seo_product_block(d) + related_block(cr, rel, img_of, names))
+            + '<div class="accs">' + details_acc(d) + '</div></div>' + related_block(cr, rel, img_of, names, d.get('links')))
 
 
-def seo_product_block(d):
-    """The same block seo.js draws on the live page (keep them in step)."""
-    specs = ''.join(f'<tr><th>{e(k)}</th><td>{e(v)}</td></tr>' for k, v in d['specs'])
-    faq = ''.join(f'<details class="acc" name="pfaq"><summary>{e(q)}</summary><div>{e(a)}</div></details>' for q, a in d['faq'])
-    links = ''.join(f'<a href="{e(l["href"])}" class="seo-chip">{e(l["a"])}</a>' for l in d['links'])
+def details_acc(d):
+    """One more panel in the product page's own accordion list: 'Jersey details'."""
+    rows = ''.join(f'<div><dt>{e(k)}</dt><dd>{e(v)}</dd></div>' for k, v in d['specs'])
     g = d.get('guide')
-    sg = d.get('size_guide')
-    return (f'<section class="seo-pblock" id="seoP">'
-            f'<h2>About this jersey</h2><p class="seo-about">{e(d["about"])}</p>'
-            f'<h2>Jersey details</h2><div class="seo-tbl"><table>{specs}</table></div>'
-            + (f'<p class="seo-gl">' + (f'<a href="/guide/{e(sg)}">Size chart</a>' if sg else '')
-               + (f' · <a href="/guide/{e(g["slug"])}">{e(g["h1"])}</a>' if g else '') + '</p>' if (g or sg) else '')
-            + f'<h2>Questions</h2><div class="accs">{faq}</div>'
-            + (f'<h2>Popular searches</h2><div class="seo-links">{links}</div>' if links else '')
-            + '</section>')
+    return (f'<details class="acc vjs-acc" name="pinfo"><summary>Jersey details</summary><div>'
+            f'<p class="vjs-about">{e(d["about"])}</p><dl class="vjs-spec">{rows}</dl>'
+            + (f'<a class="vjs-link" href="/guide/{e(g["slug"])}">{e(g["h1"])} →</a>' if g else '') + '</div></details>')
 
 
-def related_block(cr, rel, img_of, names):
-    if not rel:
+def searches_html(links):
+    if not links:
         return ''
+    return ('<div class="vjs-searches"><span>Related searches</span>'
+            + ' '.join(f'<a href="{e(l["href"])}">{e(l["a"])}</a>' for l in links) + '</div>')
+
+
+def related_block(cr, rel, img_of, names, links=None):
+    if not rel:
+        return searches_html(links)
     return (f'<div class="prelated" style="border-top:1px solid var(--line);margin-top:22px;padding:20px 14px 0">'
             f'<h2 style="font-weight:900;font-size:15px;margin:0 0 12px">More {e(cr["h1"]) if cr else "jerseys"}</h2>'
-            f'<div class="grid">{"".join(card(r, img_of(r), names[str(r["id"])]) for r in rel)}</div></div>')
+            f'<div class="grid">{"".join(card(r, img_of(r), names[str(r["id"])]) for r in rel)}</div>{searches_html(links)}</div>')
 
 
 def collection_html(c, by_id, img_of, names, buy2):
-    secs = ''
-    nav = ''
+    secs, nav = '', ''
     if len(c['sections']) > 1:
-        nav = '<div class="seo-links seo-jump">' + ''.join(f'<a href="#{e(s["id"])}" class="seo-chip">{e(s["h2"])} ({len(s["ids"])})</a>' for s in c['sections']) + '</div>'
+        nav = ('<div class="chiprow vjs-jump">' + ''.join(f'<a class="cat" href="#{e(s["id"])}">{e(s["h2"])}<i>{len(s["ids"])}</i></a>' for s in c['sections']) + '</div>')
     for s in c['sections']:
         cards = []
-        for pid in s['ids'][:60]:
+        for pid in s['ids'][:48]:
             p = by_id.get(pid)
             if p:
-                note = (f'<div class="mut" style="font-size:11px;margin-top:2px">{money((2 * float(p.get("price") or 0) - buy2) / 2)} each in any 2</div>'
+                note = (f'<div class="vjs-b2">{money((2 * float(p.get("price") or 0) - buy2) / 2)} each in any 2</div>'
                         if c.get('buy2note') and buy2 else '')
                 cards.append(card(p, img_of(p), names[pid], note))
-        secs += (f'<section class="seo-sec" id="{e(s["id"])}">' + (f'<h2>{e(s["h2"])}</h2>' if s['h2'] else '')
+        secs += (f'<section class="vjs-sec" id="{e(s["id"])}">'
+                 + (f'<div class="rowhead"><h2>{e(s["h2"])}</h2><span class="mut">{len(s["ids"])}</span></div>' if s['h2'] else '')
                  + f'<div class="grid">{"".join(cards)}</div></section>')
     faq = ''.join(f'<details class="acc" name="cfaq"><summary>{e(q)}</summary><div>{e(a)}</div></details>' for q, a in c['faq'])
-    rel = ''.join(f'<a href="/c/{e(x["slug"])}" class="seo-chip">{e(x["a"])}</a>' for x in c['rel'])
-    gl = ''.join(f'<a href="/guide/{e(g["slug"])}" class="seo-chip">{e(g["h1"])}</a>' for g in c['guides'])
-    return (f'<div class="wrap seo-c" data-seo="{e(c["slug"])}"><nav class="crumbs seo-crumb"><a href="/">Home</a> › <a href="/shop">All jerseys</a> › {e(c["h1"])}</nav>'
-            f'<h1 class="seo-h1">{e(c["h1"])}</h1><p class="mut seo-intro">{e(c["intro"])}</p>{nav}{secs}'
-            f'<section class="seo-pblock"><h2>Questions</h2><div class="accs">{faq}</div>'
-            + (f'<h2>Guides</h2><div class="seo-links">{gl}</div>' if gl else '')
-            + (f'<h2>More to explore</h2><div class="seo-links">{rel}</div>' if rel else '') + '</section></div>')
+    rel = ''.join(f'<a class="cat" href="/c/{e(x["slug"])}">{e(x["a"])}</a>' for x in c['rel'][:12])
+    gl = ''.join(f'<a class="cat" href="/guide/{e(g["slug"])}">{e(g["h1"])}</a>' for g in c['guides'])
+    return (f'<div class="wrap vjs" data-seo="{e(c["slug"])}"><nav class="vjs-crumb"><a href="/">Home</a><i>›</i><a href="/shop">All jerseys</a></nav>'
+            f'<h1 class="vjs-h1">{e(c["h1"])}</h1><div class="vjs-meta">{e(c.get("sub", ""))}</div>'
+            f'<div class="vjs-intro"><p>{e(c["intro"])}</p></div>{nav}{secs}'
+            + (f'<div class="faq vjs-faq"><h2 class="vjs-h2">Questions</h2>{faq}</div>' if faq else '')
+            + (f'<div class="vjs-more"><h2 class="vjs-h2">More to explore</h2><div class="vjs-tags">{gl}{rel}</div></div>' if (rel or gl) else '')
+            + '</div>')
 
 
 def guide_html(g, by_id, img_of, names):
@@ -1216,10 +1233,10 @@ def guide_html(g, by_id, img_of, names):
     for k, ids in g['grids'].items():
         cards = ''.join(card(by_id[i], img_of(by_id[i]), names[i]) for i in ids if i in by_id)
         body = body.replace(f'<div class="seo-pgrid grid" data-grid="{k}"></div>', f'<div class="seo-pgrid grid" data-grid="{k}">{cards}</div>')
-    rel = ''.join(f'<a href="/guide/{e(x["slug"])}" class="seo-chip">{e(x["h1"])}</a>' for x in g['rel'])
-    return (f'<article class="wrap seo-g" data-seo="{e(g["slug"])}"><nav class="crumbs seo-crumb"><a href="/">Home</a> › Guides › {e(g["h1"])}</nav>'
-            f'<h1 class="seo-h1">{e(g["h1"])}</h1><div class="seo-gbody">{body}</div>'
-            + (f'<section class="seo-pblock"><h2>More guides</h2><div class="seo-links">{rel}</div></section>' if rel else '') + '</article>')
+    rel = ''.join(f'<a class="cat" href="/guide/{e(x["slug"])}">{e(x["h1"])}</a>' for x in g['rel'])
+    return (f'<article class="wrap vjs vjs-g" data-seo="{e(g["slug"])}"><nav class="vjs-crumb"><a href="/">Home</a><i>›</i><span>Guides</span></nav>'
+            f'<h1 class="vjs-h1">{e(g["h1"])}</h1><div class="vjs-gbody">{body}</div>'
+            + (f'<div class="vjs-more"><h2 class="vjs-h2">More guides</h2><div class="vjs-tags">{rel}</div></div>' if rel else '') + '</article>')
 
 
 def google_feed(feed, F, names, PH, img_of, pages, out_path, brand):
