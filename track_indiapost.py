@@ -624,14 +624,21 @@ def run():
         new_stage = prev.get("stage") != s["stage"]
         again = s["stage"] in ("out", "failed") and (prev.get("event_at") or "") != (row["event_at"] or "") \
             and (s["stage"] != "failed" or s["attempts"] > int(prev.get("attempts") or 0))
-        if (new_stage or again) and s["stage"] in MAIL_STAGES and fresh:
+        # While a parcel is on its way back (RTO), the stage stays "returning" the whole
+        # journey, so follow every new scan: ping whenever the latest scan time moved.
+        returning_move = s["stage"] == "returning" and (prev.get("event_at") or "") != (row["event_at"] or "")
+        if (new_stage or again or returning_move) and s["stage"] in MAIL_STAGES and fresh:
             day = (s["when"] or datetime.now(timezone.utc)).astimezone(IST).strftime("%Y-%m-%d")
-            dup = sb("GET", f"woo_commands?select=id&order_id=eq.{oid}&action=eq.track_set&params->>stage=eq.{s['stage']}"
-                            f"&params->>day=eq.{day}&limit=1") or []
+            # A returning movement can repeat on the same day, so it is NOT deduped by day
+            # here — the plugin dedupes it by the scan's own time/place instead.
+            dup = [] if (returning_move and not new_stage) else (sb("GET",
+                            f"woo_commands?select=id&order_id=eq.{oid}&action=eq.track_set&params->>stage=eq.{s['stage']}"
+                            f"&params->>day=eq.{day}&limit=1") or [])
             if not dup:
                 sb("POST", "woo_commands", {"order_id": oid, "action": "track_set",
                    "params": {"stage": s["stage"], "desc": s["text"][:200], "where": s["where"][:120],
-                              "when": row["event_at"], "day": day, "attempts": s["attempts"], "status": "indiapost"}}, prefer="return=minimal")
+                              "when": row["event_at"], "day": day, "attempts": s["attempts"], "status": "indiapost",
+                              "move": bool(returning_move and not new_stage)}}, prefer="return=minimal")
                 mailed += 1
     if mailed:
         sb("POST", "rpc/vj_wake_wordpress", {})   # plugin runs the queue now instead of within the minute

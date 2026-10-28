@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.2
+ * Version: 7.4.3
  * Author: Visions Jersey
  */
 
@@ -3113,15 +3113,29 @@ function vj_track_apply($order, $stage, $desc = '', $where = '', $when = '', $st
         if (vj_mail_track($order, $mail_stage, $ctx)) { $sent[] = $key; $order->update_meta_data('_vj_track_mailed', $sent); }
     }
     $last = $order->get_meta('_vj_track_stage');
-    if ($last !== $stage) {
+    $stage_changed = ($last !== $stage);
+    if ($stage_changed) {
         $order->update_meta_data('_vj_track_stage', $stage);
         $order->add_order_note('Tracking: ' . vj_track_label($stage) . ($desc ? ' — ' . $desc : ''));
-        // Telegram: only delivered and RTO (everything else waits in the dashboard's Notifications).
-        if (in_array($stage, array('delivered', 'returning', 'rto'), true)) {
-            $icons = array('delivered' => '✅ Delivered', 'returning' => '↩️ RTO started (returning to sender)', 'rto' => '📦 RTO received — parcel is back');
-            vj_telegram_send($icons[$stage] . "\n#" . $numtxt . ' · ' . trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name())
-                . ' · ' . $order->get_billing_phone() . "\n" . $num . ($desc ? "\n" . $desc : '') . ($where ? ' · ' . $where : '')
-                . ($stage === 'rto' ? "\nCustomer emailed: reship ₹" . VJ_RESHIP_FEE . ' — they confirm payment in their ticket chat (dashboard → More → Chats)' : ''));
+    }
+    // Telegram: delivered and RTO once each, PLUS every new scan while a parcel is on its
+    // way back (so an RTO can be followed place-by-place, not just "RTO started"). A return
+    // movement is one unique scan — keyed by its time/place so the same move never pings twice.
+    if (in_array($stage, array('delivered', 'returning', 'rto'), true)) {
+        $scan_key = trim(($when ? $when : '') . '|' . ($where ? $where : '') . '|' . ($desc ? $desc : ''));
+        $return_move = ($stage === 'returning' && !$stage_changed && $scan_key !== '' && $scan_key !== (string) $order->get_meta('_vj_track_tg_scan'));
+        if ($stage_changed || $return_move) {
+            $name = trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());
+            if ($return_move) {
+                vj_telegram_send("↩️ On its way back to us\n#" . $numtxt . ' · ' . $name
+                    . "\n" . $num . ($where ? "\n📍 Now at " . $where : '') . ($desc ? "\n" . $desc : ''));
+            } else {
+                $icons = array('delivered' => '✅ Delivered', 'returning' => '↩️ RTO started (returning to sender)', 'rto' => '📦 RTO received — parcel is back');
+                vj_telegram_send($icons[$stage] . "\n#" . $numtxt . ' · ' . $name
+                    . ' · ' . $order->get_billing_phone() . "\n" . $num . ($desc ? "\n" . $desc : '') . ($where ? ' · ' . $where : '')
+                    . ($stage === 'rto' ? "\nCustomer emailed: reship ₹" . VJ_RESHIP_FEE . ' — they confirm payment in their ticket chat (dashboard → More → Chats)' : ''));
+            }
+            $order->update_meta_data('_vj_track_tg_scan', $scan_key);
         }
     }
     $order->save();
