@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.5
+ * Version: 7.4.6
  * Author: Visions Jersey
  */
 
@@ -839,7 +839,9 @@ function vj_settings_page() {
             <td><label><input name="vj_capi_on" type="checkbox" <?php checked($capi_on, 1); ?>> Tell Meta a purchase happened only when the order is marked paid</label>
               <p class="description">Sends the Purchase event from this server instead of the browser. Someone tapping "send screenshot" without paying can no longer cost you ad money.<br>
               Last sent: <?php echo esc_html(get_option('vj_capi_last', 'never')); ?><?php $e = get_option('vj_capi_lasterr', ''); echo $e ? ' · last error: <code>' . esc_html($e) . '</code>' : ''; ?><br>
-              <?php $cs = vj_capi_status(); echo wp_kses_post($cs['html']); ?></p></td>
+              <?php $cs = vj_capi_status(); echo wp_kses_post($cs['html']); ?></p>
+              <p><a href="<?php echo esc_url(admin_url('?vj_capi_resend=1')); ?>" class="button">Switched pixel? Re-send last 7 days to Meta</a>
+              <span class="description" style="display:block;margin-top:4px">After changing the pixel ID / token above (<b>Save first</b>), this re-sends every paid order of the last 7 days to the <b>current</b> pixel — even ones already sent to the old pixel. Meta can't accept events older than 7 days.</span></p></td>
           </tr>
           <tr>
             <th scope="row"><label for="vj_capi_pixel">Meta pixel ID</label></th>
@@ -2625,6 +2627,34 @@ add_action('admin_init', function () {
         $lines[] = '<p>Paid orders (last 7 days) waiting before: <b>' . $before . '</b><br>Sent now: <b style="color:#0a7">' . (int) $r['sent'] . '</b><br>Failed: <b style="color:' . ($r['failed'] ? '#b32d2e' : '#0a7') . '">' . (int) $r['failed'] . '</b></p>';
         foreach ($r['errors'] as $num => $err) $lines[] = '<p>#' . esc_html($num) . ': <code>' . esc_html($err) . '</code></p>';
         $lines[] = '<p style="color:#666">Orders older than 7 days cannot be sent — Meta refuses events older than that. From now on every paid order goes within seconds, and this catch-up also runs by itself every 20 minutes.</p>';
+    }
+    wp_die(implode('', $lines) . '<p><a href="' . esc_url(admin_url('options-general.php?page=visions-jersey')) . '">← back to settings</a></p>', 'VJ Conversions API');
+});
+
+// v7.4.6 — Manual: a NEW pixel / token was set, so the last 7 days are marked "already
+// sent" (to the OLD pixel) and the normal catch-up skips them. This clears that mark on
+// every paid order of the last 7 days and re-sends them to the CURRENT pixel. The new
+// pixel treats them as fresh; the old pixel already had them. /wp-admin/?vj_capi_resend=1
+add_action('admin_init', function () {
+    if (!isset($_GET['vj_capi_resend']) || !current_user_can('manage_options')) return;
+    if (!function_exists('wc_get_orders')) wp_die('WooCommerce is not active.', 'VJ Conversions API');
+    $orders = wc_get_orders(array('status' => array('wc-processing', 'wc-completed'),
+        'date_created' => '>' . (time() - 7 * 86400 + 3600), 'limit' => 200, 'orderby' => 'date', 'order' => 'DESC', 'return' => 'objects'));
+    $cleared = 0;
+    foreach ($orders as $o) {
+        if ((float) $o->get_total() <= 0) continue;
+        if ($o->get_meta('_vj_capi_sent')) { $o->delete_meta_data('_vj_capi_sent'); $o->save(); }
+        $cleared++;
+    }
+    delete_transient('vj_capi_sweep_lock');
+    $r = vj_capi_sweep(200);
+    $lines = array('<h2>Re-send last 7 days to Meta (new pixel)</h2>');
+    if (isset($r['skipped'])) $lines[] = '<p style="color:#b32d2e">Nothing sent: ' . esc_html($r['skipped']) . '. Turn on "Meta Purchase on payment" in Settings → VJ Push and save first.</p>';
+    else {
+        $pixel = esc_html(trim((string) get_option('vj_capi_pixel', '')));
+        $lines[] = '<p>Paid orders in the last 7 days: <b>' . $cleared . '</b><br>Re-sent to pixel <code>' . $pixel . '</code>: <b style="color:#0a7">' . (int) $r['sent'] . '</b><br>Failed: <b style="color:' . ($r['failed'] ? '#b32d2e' : '#0a7') . '">' . (int) $r['failed'] . '</b></p>';
+        foreach ($r['errors'] as $num => $err) $lines[] = '<p>#' . esc_html($num) . ': <code>' . esc_html($err) . '</code></p>';
+        $lines[] = '<p style="color:#666">Meta refuses events older than 7 days, so only the last 7 days can be re-sent. From now on every paid order goes to the current pixel within seconds.</p>';
     }
     wp_die(implode('', $lines) . '<p><a href="' . esc_url(admin_url('options-general.php?page=visions-jersey')) . '">← back to settings</a></p>', 'VJ Conversions API');
 });
