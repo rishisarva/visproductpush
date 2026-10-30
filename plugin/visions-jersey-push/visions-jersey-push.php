@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.3
+ * Version: 7.4.5
  * Author: Visions Jersey
  */
 
@@ -651,6 +651,10 @@ function vj_pull_shop_orders() {
                 $order->update_meta_data('_vj_ref', sanitize_text_field($so['ref']));
                 $order->add_order_note('Storefront reference: ' . sanitize_text_field($so['ref']));
             }
+            // v7.4.5: remember the catalogue-ad id so retargeting can target Meta orders.
+            if (!empty($so['note']) && preg_match('/vjd\s+(\S+)/i', (string) $so['note'], $mvjd)) {
+                $order->update_meta_data('_vj_vjd', sanitize_text_field($mvjd[1]));
+            }
             $order->add_order_note('Placed on the fast storefront' . (!empty($so['note']) ? ' — ' . sanitize_text_field($so['note']) : ''));
             // Shipping + coupon come through in the note; add a shipping line so
             // the Woo total matches what the customer actually saw and paid.
@@ -885,6 +889,10 @@ add_action('init', function () {
     if (!wp_next_scheduled('vj_unpaid_check')) wp_schedule_event(time() + 600, 'vj_minute', 'vj_unpaid_check');
 });
 add_action('vj_unpaid_check', function () {
+    // v7.4.4: DISABLED — unpaid-order follow-up is now handled by the new retargeting
+    // sequence (Resend), so the plugin no longer emails unpaid customers. This stops two
+    // systems chasing the same person. Owner Telegram pings are unaffected.
+    return;
     if (!get_option('vj_reminders_on', 1)) return;   // switch on the settings page
     // v6.1: ONE email, 20 minutes after an unpaid order (was 30 min / 24 h / 48 h).
     $stages = array(
@@ -951,6 +959,148 @@ function vj_send_unpaid_email($order, $stage = 1) {
         . vj_mail_p('Already paid? Then ignore this — it confirms by itself within minutes, and we check every payment ourselves too.', true);
     $html = vj_mail_wrap('Your jersey is reserved — complete the payment in under a minute.', 'Payment pending', 'Your jersey is reserved, ' . vj_mail_e($first), 'warn', $inner);
     return vj_mail_send($order, $to, 'Your jersey is reserved — complete payment · #' . $num, $html, 'unpaid');
+}
+
+// =====================================================================
+//  v7.4.5 — PAYMENT RETARGETING (unpaid Meta / catalogue-ad orders)
+//  Replaces the old single unpaid email. For storefront orders that came from
+//  a Meta ad (or catalogue ad) and are still unpaid, a short sequence of QR
+//  emails over ~3 days nudges the customer to pay. Everything goes through the
+//  existing outbox, so the daily Resend cap + priority + next-day rollover all
+//  apply automatically, and order confirmations (priority 100) always go out
+//  before these reminders (priority 30). From email 2 a small discount is
+//  offered: a fresh UNIQUE amount is minted with the site's OWN vj_pay_amount_for()
+//  and written to the order, so paying the discounted QR auto-confirms exactly
+//  like any other payment — the bank-SMS matcher is NOT touched.
+// =====================================================================
+if (!defined('VJ_RT_DISCOUNT')) define('VJ_RT_DISCOUNT', max(0, (int) get_option('vj_rt_discount', 25)));   // ₹ off, from email 2 onward
+
+// Call a Supabase SQL function (RPC) and return its value. vj_supa_req can't be used
+// here: it asks for return=minimal (empty body), so we post directly and read the body.
+function vj_supa_rpc($fn, $args) {
+    $key = get_option('vj_supabase_key'); if (!$key) return null;
+    $res = wp_remote_post(VJ_SUPA_URL . '/rest/v1/rpc/' . $fn, array('timeout' => 12,
+        'headers' => array('apikey' => $key, 'Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
+        'body' => wp_json_encode($args)));
+    if (is_wp_error($res)) return null;
+    $code = (int) wp_remote_retrieve_response_code($res);
+    if ($code < 200 || $code >= 300) { update_option('vj_supa_lasterr', 'rpc ' . $code . ': ' . substr((string) wp_remote_retrieve_body($res), 0, 180), false); return null; }
+    $b = wp_remote_retrieve_body($res);
+    return ($b === '' || $b === null) ? null : json_decode($b, true);
+}
+
+// Did this order come from Meta? The storefront passes the _fbc click id through at
+// import (_vj_fbc); a catalogue-ad order also carries a vjd id (_vj_vjd).
+function vj_rt_is_meta($order) {
+    return (string) $order->get_meta('_vj_fbc') !== '' || (string) $order->get_meta('_vj_vjd') !== '';
+}
+
+// Mint a fresh UNIQUE discounted amount with the site's OWN function (so it can't
+// clash with any other open order) and set it as this order's pay amount, so the
+// existing bank-SMS matcher auto-confirms the discounted payment. Minted once, then
+// reused by every later email. Returns the amount, or 0 if a discount is not possible.
+function vj_rt_make_deal($order) {
+    $saved = (float) $order->get_meta('_vj_rt_deal');
+    if ($saved > 0) return $saved;
+    if (VJ_RT_DISCOUNT < 1) return 0;
+    $ref = (string) $order->get_meta('_vj_ref'); if ($ref === '') return 0;
+    $full = (float) vj_pay_amount($order);
+    $target = floor((float) $order->get_total()) - VJ_RT_DISCOUNT;   // discounted rupee total
+    if ($target < 2 || $full < VJ_RT_DISCOUNT + 2) return 0;
+    $deal = (float) vj_supa_rpc('vj_pay_amount_for', array('p_total' => $target, 'p_exclude_ref' => $ref));
+    if ($deal <= 0 || $deal >= $full) return 0;                      // RPC failed or no real saving → skip discount
+    vj_supa_req('PATCH', 'shop_orders?ref=eq.' . rawurlencode($ref), array('pay_amount' => $deal));
+    $order->update_meta_data('_vj_pay_amount', (string) $deal);
+    $order->update_meta_data('_vj_rt_deal', (string) $deal);
+    $order->add_order_note('Retargeting offer: ₹' . VJ_RT_DISCOUNT . ' off — pay amount set to ₹' . number_format($deal, 2) . ' (auto-confirms on payment).');
+    $order->save();
+    return $deal;
+}
+
+// Every minute (reuses the existing vj_unpaid_check schedule): walk recent unpaid
+// Meta orders and send whichever sequence step is now due.
+add_action('vj_unpaid_check', 'vj_rt_run');
+function vj_rt_run() {
+    if (!function_exists('wc_get_orders')) return;
+    $steps = array(1 => 1 * HOUR_IN_SECONDS, 2 => 22 * HOUR_IN_SECONDS, 3 => 44 * HOUR_IN_SECONDS, 4 => 68 * HOUR_IN_SECONDS);
+    // Last 6 days: on the first run after install this sweeps up the existing backlog
+    // of unpaid Meta orders; after that it just catches each new one. Older than 6 days
+    // unpaid = too cold, left alone.
+    $orders = wc_get_orders(array('limit' => 40, 'status' => array('pending'),
+        'date_created' => '>' . (time() - 6 * DAY_IN_SECONDS), 'orderby' => 'date', 'order' => 'DESC'));
+    foreach ($orders as $order) {
+        if ($order->get_created_via() !== 'visions-storefront') continue;
+        if (!vj_rt_is_meta($order)) continue;                        // Meta / catalogue-ad orders only
+        if (!$order->get_billing_email()) continue;
+        // Anchor the sequence to when retargeting FIRST sees this order, not the order
+        // date — so a backlog order picked up on install still gets the full sequence
+        // from email 1 (over the next 3 days) instead of jumping straight to "last call".
+        // A brand-new order is seen within a minute, so email 1 still lands ~1h after it.
+        $start = (int) $order->get_meta('_vj_rt_start');
+        if (!$start) { $order->update_meta_data('_vj_rt_start', time()); $order->save(); continue; }
+        $elapsed = time() - $start;
+        $done = (int) $order->get_meta('_vj_rt_stage');
+        $stage = 0; foreach ($steps as $n => $after) { if ($elapsed >= $after) $stage = $n; }
+        if ($stage === 0 || $stage <= $done) continue;
+        if (vj_rt_send($order, $stage)) { $order->update_meta_data('_vj_rt_stage', $stage); $order->save(); }
+    }
+}
+
+// Build + queue one retargeting email. Email 1 is full price; emails 2–4 carry the
+// discounted QR. All go through the outbox at tag 'remind' (low priority).
+function vj_rt_send($order, $stage) {
+    $to = $order->get_billing_email(); if (!$to) return false;
+    $first = $order->get_billing_first_name() ?: 'there';
+    $num = $order->get_order_number();
+    $ref = (string) $order->get_meta('_vj_ref');
+    $pay = get_option('vj_payinfo'); $upi = (is_array($pay) && !empty($pay['upi'])) ? $pay['upi'] : 'iblamerishi@fam';
+    $payee = get_option('vj_payee_name', 'Visions Jersey');
+    $orderUrl = vj_mail_order_url($order);
+
+    $full = (float) vj_pay_amount($order);
+    $deal = ($stage >= 2) ? vj_rt_make_deal($order) : 0;
+    $amt = ($deal > 0) ? $deal : $full;
+    $amtTxt = number_format($amt, 2, '.', '');
+    $saving = ($deal > 0) ? max(0, (int) round((float) $order->get_total() - $deal)) : 0;
+
+    $upiLink = 'upi://pay?pa=' . rawurlencode($upi) . '&pn=' . rawurlencode($payee) . '&am=' . $amtTxt . '&cu=INR&tn=' . rawurlencode($ref ?: (string) $num);
+    $qr = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=' . rawurlencode($upiLink);
+    $qrBlock = '<div style="text-align:center;border:1px solid #E6E7EB;border-radius:16px;padding:18px 14px;margin:16px 0">'
+        . '<div style="font-size:11px;font-weight:800;letter-spacing:.8px;color:#9A9CA6">SCAN WITH ANY UPI APP</div>'
+        . '<img src="' . esc_url($qr) . '" width="190" height="190" alt="UPI QR" style="display:block;margin:8px auto;border-radius:10px">'
+        . '<div style="font-size:12.5px;color:#6B6E7A">or pay <b style="color:#14161F">₹' . vj_mail_e($amtTxt) . '</b> to <b style="color:#14161F">' . vj_mail_e($upi) . '</b></div></div>';
+    $autoline = vj_mail_p('✅ The moment your payment lands, your order is <b>confirmed and moved to processing automatically</b> — you get an email + tracking. Nothing to send us.', true);
+
+    $kicker = 'Payment pending'; $tone = 'warn'; $extra = '';
+    if ($stage == 1) {
+        $subject = 'Your jersey is reserved ⚽ — finish in under a minute · #' . $num;
+        $title = 'Your jersey is reserved, ' . vj_mail_e($first);
+        $intro = 'Hi ' . vj_mail_e($first) . ' 👋 Your order is saved and your size is set aside, but the payment has not reached us yet. Open any UPI app and scan the code below — the exact amount is already filled in, so there is nothing to type.';
+    } elseif ($stage == 2) {
+        $subject = 'Still holding your size — and a special price just for you 🎁 · #' . $num;
+        $title = 'A special price for you, ' . vj_mail_e($first);
+        $intro = 'Hi ' . vj_mail_e($first) . ', your jersey is still reserved. To help you grab it today we have unlocked a special price' . ($saving > 0 ? ' — you save ₹' . $saving : '') . '. The discount is already built into the amount below, and it applies only when you pay from this QR.';
+        $extra = '<div style="background:#14161F;border-radius:16px;padding:18px;margin:18px 0;color:#F0E8D5"><div style="font-size:15px;font-weight:900;margin-bottom:10px">Why 70,000+ fans order from us</div><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size:13px;line-height:1.5;color:#E3DCC8"><tr><td style="padding:4px 0">✅ &nbsp;Every jersey checked by hand before it is packed</td></tr><tr><td style="padding:4px 0">🚚 &nbsp;Free shipping · ships in 24–48 h · tracking by email</td></tr><tr><td style="padding:4px 0">📸 &nbsp;Real customer photos on our <a href="' . VJ_MAIL_SHOP . '/reviews" style="color:#F0E8D5;font-weight:800">review wall</a></td></tr></table></div>';
+    } elseif ($stage == 3) {
+        $subject = 'Your size is almost gone — your special price is still on · #' . $num;
+        $title = 'Almost gone, ' . vj_mail_e($first);
+        $intro = 'Hey ' . vj_mail_e($first) . ', quick heads-up — your size is running low and we can only hold your reservation a little longer. Your special price is still on, so scan and you are done.';
+    } else {
+        $subject = 'Last call — your jersey & special price expire tonight · #' . $num;
+        $title = 'Last call, ' . vj_mail_e($first);
+        $intro = 'Hi ' . vj_mail_e($first) . ', this is the last reminder — tonight we release your reserved jersey and the special price goes with it. Pay below and it is yours.';
+        $extra = vj_mail_note('⏳ <b>This price is held only while your size is reserved.</b> Popular sizes sell out, and the discount does not carry over to a new order.', 'warn');
+    }
+
+    $inner = vj_mail_p($intro)
+        . vj_mail_box($order, array('Amount to pay' => '<span style="font-size:22px;font-weight:900">₹' . vj_mail_e($amtTxt) . '</span>', 'Shipping' => 'Free · India Post'), true)
+        . $qrBlock
+        . $autoline
+        . vj_mail_btn($orderUrl, 'Open my order & pay')
+        . $extra
+        . vj_mail_p('Already paid? Then please ignore this — your order confirms by itself within minutes.', true);
+    $html = vj_mail_wrap($subject, $kicker, $title, $tone, $inner);
+    return vj_mail_send($order, $to, $subject, $html, 'remind');
 }
 
 
@@ -3520,12 +3670,13 @@ add_action('init', function () {
 });
 function vj_mail_priority($tag) {
     $t = preg_replace('/-.*$/', '', (string) $tag);
-    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30);   // v6.9: ticket = "we replied" · v7.1: refund / exchange
+    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30, 'remind' => 30);   // v6.9: ticket = "we replied" · v7.1: refund / exchange · v7.4.5: remind = retargeting
     return isset($p[$t]) ? $p[$t] : 10;
 }
 function vj_mail_ttl_hours($tag) {
     $t = preg_replace('/-.*$/', '', (string) $tag);
     if ($t === 'unpaid') return 20;          // pointless after a day
+    if ($t === 'remind') return 40;          // retargeting: roll over to tomorrow if the daily cap is full
     if ($t === 'out') return 16;             // "arrives today" must not arrive tomorrow
     if ($t === 'ticket') return 24;
     return 72;
