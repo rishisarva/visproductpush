@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.8
+ * Version: 7.4.9
  * Author: Visions Jersey
  */
 
@@ -118,11 +118,13 @@ function vj_telegram_send($text) {
 }
 
 // Send a message and return its Telegram message_id (so a later update can delete it).
-function vj_telegram_send_id($text) {
+function vj_telegram_send_id($text, $parse = '') {
     $cfg = get_option('vj_telegram');
     if (empty($cfg['token']) || empty($cfg['chat'])) return 0;
+    $body = array('chat_id' => $cfg['chat'], 'text' => $text);
+    if ($parse !== '') $body['parse_mode'] = $parse;
     $res = wp_remote_post('https://api.telegram.org/bot' . $cfg['token'] . '/sendMessage', array(
-        'timeout' => 8, 'body' => array('chat_id' => $cfg['chat'], 'text' => $text)));
+        'timeout' => 8, 'body' => $body));
     if (is_wp_error($res) || wp_remote_retrieve_response_code($res) !== 200) return 0;
     $j = json_decode((string) wp_remote_retrieve_body($res), true);
     return (is_array($j) && !empty($j['result']['message_id'])) ? (int) $j['result']['message_id'] : 0;
@@ -142,13 +144,16 @@ function vj_telegram_delete($message_id) {
 //  sent — so it stays at the bottom of the chat and pings you. It resets each day:
 //  yesterday's list is left as a record and today starts from an empty list.
 // =====================================================================
+function vj_tg_esc($s) {
+    return str_replace(array('&', '<', '>'), array('&amp;', '&lt;', '&gt;'), (string) $s);   // for Telegram HTML parse_mode
+}
 function vj_tg_order_tags($order) {
     $t = array();
-    if ((string) $order->get_meta('_vj_fbc') !== '') $t[] = 'Meta ad';
-    if ((string) $order->get_meta('_vj_vjd') !== '') $t[] = 'Catalog ad';
+    if ((string) $order->get_meta('_vj_fbc') !== '') $t[] = 'Meta ad 🔵';
+    if ((string) $order->get_meta('_vj_vjd') !== '') $t[] = 'Catalog ad 📣';
     $cp = strtoupper((string) $order->get_meta('_vj_coupon'));
-    if ($cp === 'ADDEAL') $t[] = 'ADDEAL';
-    elseif ($cp !== '') $t[] = 'Coupon ' . $cp;
+    if ($cp === 'ADDEAL') $t[] = 'ADDEAL 🔥';
+    elseif ($cp !== '') $t[] = 'Coupon ' . vj_tg_esc($cp) . ' 🎟️';
     return $t;
 }
 function vj_tg_build_today() {
@@ -163,9 +168,10 @@ function vj_tg_build_today() {
         $n++;
         $name = trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name());
         $tags = vj_tg_order_tags($o);
-        $lines[] = '• #' . $o->get_order_number() . ' · ' . ($name !== '' ? $name : 'Customer') . ($tags ? ' — ' . implode(', ', $tags) : '');
+        $tagTxt = $tags ? ' — ' . implode('  ', array_map(function ($x) { return '<b>' . $x . '</b>'; }, $tags)) : '';
+        $lines[] = '• <b>#' . vj_tg_esc($o->get_order_number()) . '</b> · ' . vj_tg_esc($name !== '' ? $name : 'Customer') . $tagTxt;
     }
-    $header = '🧾 Orders today · ' . $mid->format('j M Y') . ' · ' . $n;
+    $header = '🧾 <b>Orders today</b> · ' . $mid->format('j M Y') . ' · <b>' . $n . '</b>';
     return array('text' => $header . "\n\n" . ($lines ? implode("\n", $lines) : 'No orders yet.'), 'day' => $mid->format('Y-m-d'));
 }
 function vj_tg_update_digest() {
@@ -176,7 +182,7 @@ function vj_tg_update_digest() {
     if (is_array($prev) && !empty($prev['msg']) && !empty($prev['day']) && $prev['day'] === $built['day']) {
         vj_telegram_delete((int) $prev['msg']);
     }
-    $mid = vj_telegram_send_id($built['text']);
+    $mid = vj_telegram_send_id($built['text'], 'HTML');
     if ($mid) update_option('vj_tg_digest', array('msg' => $mid, 'day' => $built['day']), false);
 }
 
