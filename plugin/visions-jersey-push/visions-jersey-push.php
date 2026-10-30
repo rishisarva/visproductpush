@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.7
+ * Version: 7.4.8
  * Author: Visions Jersey
  */
 
@@ -115,6 +115,69 @@ function vj_telegram_send($text) {
         'body' => array('chat_id' => $cfg['chat'], 'text' => $text),
     ));
     return !is_wp_error($res) && wp_remote_retrieve_response_code($res) === 200;
+}
+
+// Send a message and return its Telegram message_id (so a later update can delete it).
+function vj_telegram_send_id($text) {
+    $cfg = get_option('vj_telegram');
+    if (empty($cfg['token']) || empty($cfg['chat'])) return 0;
+    $res = wp_remote_post('https://api.telegram.org/bot' . $cfg['token'] . '/sendMessage', array(
+        'timeout' => 8, 'body' => array('chat_id' => $cfg['chat'], 'text' => $text)));
+    if (is_wp_error($res) || wp_remote_retrieve_response_code($res) !== 200) return 0;
+    $j = json_decode((string) wp_remote_retrieve_body($res), true);
+    return (is_array($j) && !empty($j['result']['message_id'])) ? (int) $j['result']['message_id'] : 0;
+}
+function vj_telegram_delete($message_id) {
+    $cfg = get_option('vj_telegram');
+    if (empty($cfg['token']) || empty($cfg['chat']) || !$message_id) return;
+    wp_remote_post('https://api.telegram.org/bot' . $cfg['token'] . '/deleteMessage', array(
+        'timeout' => 8, 'body' => array('chat_id' => $cfg['chat'], 'message_id' => (int) $message_id)));
+}
+
+// =====================================================================
+//  v7.4.8 — TELEGRAM "ORDERS TODAY" LIVE DIGEST
+//  One message listing every order placed today (IST) with the dashboard-style
+//  tags (Meta ad / Catalog ad / ADDEAL / Coupon) + customer name + order #. When a
+//  new order arrives the previous message is deleted and a fresh, complete one is
+//  sent — so it stays at the bottom of the chat and pings you. It resets each day:
+//  yesterday's list is left as a record and today starts from an empty list.
+// =====================================================================
+function vj_tg_order_tags($order) {
+    $t = array();
+    if ((string) $order->get_meta('_vj_fbc') !== '') $t[] = 'Meta ad';
+    if ((string) $order->get_meta('_vj_vjd') !== '') $t[] = 'Catalog ad';
+    $cp = strtoupper((string) $order->get_meta('_vj_coupon'));
+    if ($cp === 'ADDEAL') $t[] = 'ADDEAL';
+    elseif ($cp !== '') $t[] = 'Coupon ' . $cp;
+    return $t;
+}
+function vj_tg_build_today() {
+    $tz = new DateTimeZone('Asia/Kolkata');
+    $mid = new DateTime('today', $tz);                 // 00:00 IST today
+    $start = $mid->getTimestamp();
+    $orders = function_exists('wc_get_orders') ? wc_get_orders(array('limit' => 100,
+        'date_created' => '>' . ($start - 1), 'orderby' => 'date', 'order' => 'ASC', 'return' => 'objects')) : array();
+    $lines = array(); $n = 0;
+    foreach ((array) $orders as $o) {
+        if ($o->get_created_via() !== 'visions-storefront') continue;
+        $n++;
+        $name = trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name());
+        $tags = vj_tg_order_tags($o);
+        $lines[] = '• #' . $o->get_order_number() . ' · ' . ($name !== '' ? $name : 'Customer') . ($tags ? ' — ' . implode(', ', $tags) : '');
+    }
+    $header = '🧾 Orders today · ' . $mid->format('j M Y') . ' · ' . $n;
+    return array('text' => $header . "\n\n" . ($lines ? implode("\n", $lines) : 'No orders yet.'), 'day' => $mid->format('Y-m-d'));
+}
+function vj_tg_update_digest() {
+    if (!function_exists('wc_get_orders')) return;
+    $built = vj_tg_build_today();
+    $prev = get_option('vj_tg_digest');
+    // Only delete the previous message if it belongs to TODAY — yesterday's stays as a record.
+    if (is_array($prev) && !empty($prev['msg']) && !empty($prev['day']) && $prev['day'] === $built['day']) {
+        vj_telegram_delete((int) $prev['msg']);
+    }
+    $mid = vj_telegram_send_id($built['text']);
+    if ($mid) update_option('vj_tg_digest', array('msg' => $mid, 'day' => $built['day']), false);
 }
 
 // Payment info used in the Telegram payment-request message.
@@ -655,6 +718,10 @@ function vj_pull_shop_orders() {
             if (!empty($so['note']) && preg_match('/vjd\s+(\S+)/i', (string) $so['note'], $mvjd)) {
                 $order->update_meta_data('_vj_vjd', sanitize_text_field($mvjd[1]));
             }
+            // v7.4.8: remember the coupon / deal code for the Telegram daily digest.
+            if (!empty($so['note']) && preg_match('/coupon\s+([A-Z0-9]+)\s+-/i', (string) $so['note'], $mcp)) {
+                $order->update_meta_data('_vj_coupon', sanitize_text_field(strtoupper($mcp[1])));
+            }
             $order->add_order_note('Placed on the fast storefront' . (!empty($so['note']) ? ' — ' . sanitize_text_field($so['note']) : ''));
             // Shipping + coupon come through in the note; add a shipping line so
             // the Woo total matches what the customer actually saw and paid.
@@ -681,6 +748,7 @@ function vj_pull_shop_orders() {
         vj_supa_req('PATCH', 'shop_orders?id=eq.' . rawurlencode($so['id']),
             array('done' => true, 'woo_order_id' => $woo_id ? (string) $woo_id : null, 'error' => $err ?: null));
     }
+    if ($made > 0) vj_tg_update_digest();   // v7.4.8: refresh the "orders today" Telegram digest
     return $made;
 }
 add_action('vj_supa_tick', 'vj_pull_shop_orders');
