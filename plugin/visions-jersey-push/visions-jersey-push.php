@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.6
+ * Version: 7.4.7
  * Author: Visions Jersey
  */
 
@@ -2455,6 +2455,14 @@ function vj_capi_phone($v) {
     return hash('sha256', $d);
 }
 
+// Always show India time on the settings page, whatever WordPress's own timezone is
+// set to (the event_time SENT to Meta is a Unix timestamp, so it is already correct).
+function vj_ist_now() {
+    return function_exists('wp_date')
+        ? wp_date('j M Y, g:i a', time(), new DateTimeZone('Asia/Kolkata'))
+        : gmdate('j M Y, g:i a', time() + 5 * 3600 + 1800);
+}
+
 function vj_send_purchase_to_meta($order_id) {
     if (!get_option('vj_capi_on', 0)) return 'off';
     $pixel = trim((string) get_option('vj_capi_pixel', ''));
@@ -2525,7 +2533,7 @@ function vj_send_purchase_to_meta($order_id) {
         $order->update_meta_data('_vj_capi_sent', time());
         $order->add_order_note('Purchase sent to Meta (Conversions API) — ₹' . (float) $order->get_total());
         $order->save();
-        update_option('vj_capi_last', date_i18n('j M Y, g:i a') . ' · order ' . $order->get_order_number(), false);
+        update_option('vj_capi_last', vj_ist_now() . ' · order ' . $order->get_order_number(), false);
         delete_option('vj_capi_lasterr');
         return true;
     }
@@ -2586,7 +2594,7 @@ function vj_capi_sweep($max = 40) {
         if ($r === true) $res['sent']++;
         else { $res['failed']++; $res['errors'][$o->get_order_number()] = (string) $r; if ($res['failed'] >= 3) break; }   // token broken? stop hammering
     }
-    if ($res['sent']) update_option('vj_capi_sweep_last', date_i18n('j M Y, g:i a') . ' · ' . $res['sent'] . ' sent', false);
+    if ($res['sent']) update_option('vj_capi_sweep_last', vj_ist_now() . ' · ' . $res['sent'] . ' sent', false);
     return $res;
 }
 
