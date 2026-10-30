@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.9
+ * Version: 7.4.10
  * Author: Visions Jersey
  */
 
@@ -168,8 +168,10 @@ function vj_tg_build_today() {
         $n++;
         $name = trim($o->get_billing_first_name() . ' ' . $o->get_billing_last_name());
         $tags = vj_tg_order_tags($o);
+        $amt = (float) vj_pay_amount($o);                 // what the customer actually pays (unique / discounted), not the round total
+        $amtTxt = $amt > 0 ? ' · ₹' . number_format($amt, 2) : '';
         $tagTxt = $tags ? ' — ' . implode('  ', array_map(function ($x) { return '<b>' . $x . '</b>'; }, $tags)) : '';
-        $lines[] = '• <b>#' . vj_tg_esc($o->get_order_number()) . '</b> · ' . vj_tg_esc($name !== '' ? $name : 'Customer') . $tagTxt;
+        $lines[] = '• <b>#' . vj_tg_esc($o->get_order_number()) . '</b> · ' . vj_tg_esc($name !== '' ? $name : 'Customer') . $amtTxt . $tagTxt;
     }
     $header = '🧾 <b>Orders today</b> · ' . $mid->format('j M Y') . ' · <b>' . $n . '</b>';
     return array('text' => $header . "\n\n" . ($lines ? implode("\n", $lines) : 'No orders yet.'), 'day' => $mid->format('Y-m-d'));
