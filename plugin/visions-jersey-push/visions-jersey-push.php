@@ -2,8 +2,15 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.10
+ * Version: 7.4.11
  * Author: Visions Jersey
+ *
+ * v7.4.11 · 2 Nov 2026 · Mirror fix: paid orders that slipped past the order hooks
+ *   (UPI/bank-SMS matched, e.g. #36348/#36363) never reached woo_mirror, so the app
+ *   never booked them. A light batched reconcile now re-pushes the latest paid
+ *   orders to woo_mirror on every minute tick (the payment Shortcut pings /tick the
+ *   moment a bank SMS lands, so it mirrors within seconds). Backstops the hooks;
+ *   the full hourly sweep stays.
  */
 
 if (!defined('ABSPATH')) exit;
@@ -482,6 +489,36 @@ function vj_supa_sweep($limit = 100) {
     vj_supa_run_commands();
     return $n;
 }
+
+// v7.4.11: light mirror reconcile on EVERY minute tick.
+// The mirror is normally kept current by the order hooks (new_order /
+// order_status_changed / update_order → vj_supa_push_order). But if a payment is
+// ever confirmed by a path that doesn't fire WooCommerce's status hooks, the paid
+// order never reaches woo_mirror, so the app's auto-add never sees it and it sits
+// "paid but missing" (observed with UPI/bank-SMS matched orders like #36348,
+// #36363). The full self-heal sweep only ran hourly. This re-pushes the latest few
+// paid orders to woo_mirror every minute — and the payment Shortcut pings /tick the
+// moment a bank SMS lands, so a just-paid order is mirrored within seconds. One
+// batched request, so it stays cheap even at a minute cadence.
+function vj_supa_mirror_reconcile($limit = 15) {
+    if (!get_option('vj_supabase_key')) return 0;
+    $rows = array();
+    foreach (vj_supa_recent_order_ids($limit) as $oid) {
+        $order = wc_get_order($oid);
+        if (!$order) continue;
+        if (!in_array($order->get_status(), array('processing', 'completed', 'refunded'), true)) continue;
+        $rows[] = array(
+            'id' => (string) $order->get_id(),
+            'status' => $order->get_status(),
+            'payload' => vj_supa_payload($order),
+            'updated_at' => gmdate('c'),
+        );
+    }
+    if (empty($rows)) return 0;
+    vj_supa_req('POST', 'woo_mirror?on_conflict=id', $rows);
+    return count($rows);
+}
+add_action('vj_supa_tick', 'vj_supa_mirror_reconcile');
 
 function vj_supa_run_commands() {
     // v7.0: a command can carry params.send_after (ISO time, UTC) — e.g. a refund +
