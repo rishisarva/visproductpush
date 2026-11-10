@@ -210,9 +210,10 @@ def clean_msretro_title(title: str) -> str:
     return (t or (title or "").strip()).upper()             # capitals, like the rest of the shop
 
 
-# Premium kits (the title says imported / player version / master) are not on
-# the price list: they cost MS Retro's own website price + PREMIUM_MARGIN.
-PREMIUM_RX = re.compile(r"\b(imported|player'?s?\s*version|master)\b", re.I)
+# Premium kits (the title says imported / player version / master / fan version /
+# premium quality) are not on the price list: they cost MS Retro's own website
+# price + PREMIUM_MARGIN.
+PREMIUM_RX = re.compile(r"\b(imported|player'?s?\s*version|master|fan\s*version|premium\s*quality)\b", re.I)
 PREMIUM_MARGIN = 300.0
 
 
@@ -1492,6 +1493,66 @@ def cmd_hide_all(args) -> int:
     return 0
 
 
+def cmd_rereview_premium(args) -> int:
+    """Pull every LIVE premium kit (title says imported / player version / master /
+    fan version / premium quality -> priced MS website + PREMIUM_MARGIN, type SITE)
+    back into the dashboard's Photos -> Review tab so the owner can redo its images.
+    Each one is set to 'pending' and hidden (draft); the owner re-approves it with new
+    photos. --dry-run lists what WOULD be pulled and changes nothing. Only premium MS
+    products are touched; normal kits, Thayyil and everything else are left alone."""
+    require_keys(args)
+    supplier = load_supplier(args)
+    for p in supplier:
+        p.raw_title = p.name
+    # premium detection + pricing (sets price_type / price_auto = 'SITE')
+    apply_msretro_prices(supplier, args.margin, args.round_to, sync_cloud.price_overrides())
+    premium = [p for p in supplier if getattr(p, "price_type", "") == "SITE"]
+    for p in premium:
+        p.name = clean_msretro_title(p.name)            # store the clean title, like the sync does
+    log.info("%d premium (SITE) product(s) at the supplier", len(premium))
+
+    woo = Woo(args.wc_url, args.wc_key, args.wc_secret)
+    existing = {p.get("sku"): p for p in woo.list_products(SKU_PREFIX)}
+    targets = [(p, existing[p.sku]) for p in premium
+               if p.sku in existing and existing[p.sku].get("status") == "publish"]
+    already = [p for p in premium if p.sku in existing and existing[p.sku].get("status") != "publish"]
+    log.info("%d premium product(s) are LIVE and will be pulled into Review "
+             "(%d already hidden/in review, skipped)", len(targets), len(already))
+
+    pulled = 0
+    for p, ex in targets:
+        if args.dry_run:
+            log.info("WOULD PULL  %s  (#%s)", (p.raw_title or p.name)[:55], ex.get("id"))
+            continue
+        try:
+            sync_cloud.review_add(p, ex["id"], args.supplier)      # pending row (with supplier images) if none
+            sync_cloud.review_mark(p.sku, "pending")               # flip a live/approved row back to pending
+            sync_cloud.review_update(p.sku, {"price_type": "SITE"})# premium price (+PREMIUM_MARGIN)
+            woo.call("PUT", f"/products/{ex['id']}",
+                     json={"status": "draft", "stock_status": "outofstock"})   # off the shop
+            pulled += 1
+            log.info("PULLED      %s", (p.raw_title or p.name)[:55])
+        except Exception as exc:  # noqa: BLE001
+            log.error("Could not pull %s: %s", p.sku, exc)
+        time.sleep(0.3)
+
+    if not args.dry_run and pulled:
+        # refresh the app feed now so the pulled kits drop off the shop immediately
+        try:
+            live = [q for q in woo.list_products(SKU_PREFIX)
+                    if q.get("status") == "publish" and not prebook.woo_match(q)]
+            sync_cloud.snapshot_products(live, supplier, prefix=SKU_PREFIX)
+            log.info("App feed refreshed — %d live products remain on the shop", len(live))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not refresh the app feed now (the next sync will): %s", exc)
+
+    log.info("Done — %s %d premium product(s) %s Review",
+             "would pull" if args.dry_run else "pulled",
+             len(targets) if args.dry_run else pulled,
+             "into")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1570,6 +1631,12 @@ def build_parser() -> argparse.ArgumentParser:
     hd = sub.add_parser("hide-all", help="Switch a supplier off: hide every product with --prefix (nothing deleted)")
     common(hd)
 
+    rr = sub.add_parser("rereview-premium",
+                        help="Pull live premium kits (imported / player version / master / "
+                             "fan version / premium quality) back into Photos -> Review "
+                             "(hidden until re-approved). Use --dry-run first.")
+    common(rr)
+
     w = sub.add_parser("wipe", help="Delete products")
     common(w)
     w.add_argument("--all", action="store_true",
@@ -1587,7 +1654,8 @@ def main() -> None:
     SKU_PREFIX = getattr(args, "prefix", SKU_PREFIX) or SKU_PREFIX
 
     handlers = {"test": cmd_test, "sync": cmd_sync, "hide-all": cmd_hide_all,
-                "first-run": cmd_first_run, "wipe": cmd_wipe}
+                "first-run": cmd_first_run, "wipe": cmd_wipe,
+                "rereview-premium": cmd_rereview_premium}
     sys.exit(handlers[args.command](args))
 
 

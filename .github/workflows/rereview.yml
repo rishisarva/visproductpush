@@ -1,0 +1,45 @@
+name: Re-review premium kits
+
+# One-off, manual. Pulls every LIVE premium kit (imported / player version /
+# master / fan version / premium quality) back into the dashboard's
+# Photos -> Review tab (hidden from the shop until re-approved with new photos).
+# Run with dry_run = true FIRST to see the list; then dry_run = false to do it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (list only, change nothing)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: shop            # never run at the same time as the hourly sync
+  cancel-in-progress: false
+
+jobs:
+  rereview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Pull premium kits into Review
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          VJ_SECRET: ${{ secrets.VJ_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: >
+          python -u visions_sync.py rereview-premium
+          --supplier "https://msretro.com"
+          --collection ""
+          --prefix "MS-"
+          --margin 242
+          --attribute-name "sizes"
+          --skip-sold-out
+          ${{ inputs.dry_run && '--dry-run' || '' }}
