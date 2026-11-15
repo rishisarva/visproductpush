@@ -2,8 +2,16 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.11
+ * Version: 7.4.12
  * Author: Visions Jersey
+ *
+ * v7.4.12 · 16 Nov 2026 · 24-hour "packed / still on track" nudge. About a day
+ *   after a paid order that still hasn't shipped, one short reassurance email goes
+ *   out (branded, through the outbox) so the customer waiting ~24h before dispatch
+ *   is kept warm. Reuses the per-minute vj_unpaid_check schedule. Only fires once
+ *   per order, and skips anything already shipped (tracking present / shipped mail
+ *   sent), completed, refunded, or without a customer email — so no existing email
+ *   is touched and nobody gets "it's packed" after "it's shipped".
  *
  * v7.4.11 · 2 Nov 2026 · Mirror fix: paid orders that slipped past the order hooks
  *   (UPI/bank-SMS matched, e.g. #36348/#36363) never reached woo_mirror, so the app
@@ -3211,6 +3219,11 @@ add_action('admin_init', function () {
         update_option('vj_tg_new_orders', absint($_GET['vj_tg_new_orders']) ? '1' : '0', false);
         wp_die('New-order Telegram messages: <b>' . (get_option('vj_tg_new_orders', '1') === '0' ? 'OFF' : 'ON') . '</b>', 'VJ Telegram');
     }
+    if (isset($_GET['vj_packing_hours'])) {           // v7.4.12: hours after payment before the "still on track" nudge; 0 = feature off (default 24)
+        update_option('vj_packing_after_h', max(0, absint($_GET['vj_packing_hours'])), false);
+        $h = (int) get_option('vj_packing_after_h', 24);
+        wp_die('24-hour "packed / on track" nudge: <b>' . ($h < 1 ? 'OFF' : 'sends ' . $h . 'h after payment') . '</b><br><small>(takes effect on the next save of the plugin settings or the next plugin load)</small>', 'VJ Email');
+    }
 });
 define('VJ_RESHIP_FEE', 80);
 define('VJ_RESHIP_WA', '');                      // v6.9: no WhatsApp number — customers confirm in their ticket chat
@@ -3689,6 +3702,43 @@ function vj_mail_shipped_maybe($oid) {
 add_action('woocommerce_order_status_completed', 'vj_mail_shipped_maybe', 25, 1);
 add_action('woocommerce_update_order', 'vj_mail_shipped_maybe', 25, 1);   // tracking number added after completion
 
+// =====================================================================
+//  v7.4.12 — 24-HOUR "PACKED / STILL ON TRACK" NUDGE
+//  The confirmation email promises dispatch in 24-48h. About a day in, a paid
+//  order that STILL hasn't shipped gets one short reassurance email so the
+//  customer isn't left wondering. Runs off the existing per-minute
+//  vj_unpaid_check schedule (same trick as the retargeting runner), so no new
+//  cron is added. Guards mirror vj_mail_shipped_maybe:
+//      · status must be 'processing' (paid, and NOT completed/refunded/cancelled)
+//      · paid at least VJ_PACKING_AFTER_H hours ago
+//      · NOT already shipped — no tracking number AND no _vj_mail_shipped
+//      · the one-shot guard meta _vj_mail_packing is still unset
+//      · the order actually has a customer email
+//  so it can never double-send and never emails a shipped / done / no-email order.
+//  Off entirely with /wp-admin/?vj_packing_hours=0 ; default 24.
+// =====================================================================
+if (!defined('VJ_PACKING_AFTER_H')) define('VJ_PACKING_AFTER_H', (int) get_option('vj_packing_after_h', 24));
+add_action('vj_unpaid_check', 'vj_packing_mail_run');
+function vj_packing_mail_run() {
+    if (!function_exists('wc_get_orders') || VJ_PACKING_AFTER_H < 1) return;   // 0 = feature off
+    $cutoff = time() - VJ_PACKING_AFTER_H * HOUR_IN_SECONDS;
+    $orders = wc_get_orders(array(
+        'limit'        => 20,
+        'status'       => array('processing'),                 // paid; excludes completed / refunded / cancelled / pending
+        'date_paid'    => '<' . $cutoff,                        // paid at least ~24h ago
+        'date_created' => '>' . (time() - 10 * DAY_IN_SECONDS), // don't walk ancient orders
+        'orderby'      => 'date', 'order' => 'DESC',
+    ));
+    foreach ($orders as $o) {
+        if ($o->get_meta('_vj_mail_packing') || $o->get_meta('_vj_mail_shipped')) continue;   // already nudged, or shipped mail sent
+        if (vj_track_number($o)) continue;                     // has a tracking number → it already shipped
+        $paid = $o->get_date_paid();                           // belt-and-braces (don't trust the query alone)
+        if (!$paid || $paid->getTimestamp() > $cutoff) continue;
+        if (!$o->get_billing_email()) { $o->update_meta_data('_vj_mail_packing', 'skipped-no-email'); $o->save(); continue; }
+        if (vj_mail_packing($o)) { $o->update_meta_data('_vj_mail_packing', gmdate('c')); $o->save(); }
+    }
+}
+
 // ---------- building blocks ----------
 function vj_mail_e($s) { return esc_html((string) $s); }
 function vj_mail_order_url($order) { $ref = $order->get_meta('_vj_ref'); return VJ_MAIL_SHOP . ($ref ? '/order/' . rawurlencode($ref) : '/account'); }
@@ -3821,7 +3871,7 @@ add_action('init', function () {
 });
 function vj_mail_priority($tag) {
     $t = preg_replace('/-.*$/', '', (string) $tag);
-    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30, 'remind' => 30);   // v6.9: ticket = "we replied" · v7.1: refund / exchange · v7.4.5: remind = retargeting
+    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'packing' => 75, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30, 'remind' => 30);   // v6.9: ticket = "we replied" · v7.1: refund / exchange · v7.4.5: remind = retargeting · v7.4.12: packing = 24h "still on track"
     return isset($p[$t]) ? $p[$t] : 10;
 }
 function vj_mail_ttl_hours($tag) {
@@ -3830,6 +3880,7 @@ function vj_mail_ttl_hours($tag) {
     if ($t === 'remind') return 40;          // retargeting: roll over to tomorrow if the daily cap is full
     if ($t === 'out') return 16;             // "arrives today" must not arrive tomorrow
     if ($t === 'ticket') return 24;
+    if ($t === 'packing') return 36;         // v7.4.12: a "still on track" note is pointless if it arrives 2 days late — drop rather than send stale
     return 72;
 }
 function vj_mail_today() {
@@ -4033,6 +4084,20 @@ function vj_mail_processing($order, $to = '') {
         . vj_mail_p('You\'ll get your <b>tracking number</b> by email the moment it ships, and we\'ll keep you posted when it\'s out for delivery.', true)
         . vj_mail_note('<b>Sizing worry?</b> Our kits run slightly fitted. If you think you picked the wrong size, reply to this email within the hour and we\'ll change it before it\'s packed.', 'info');
     return vj_mail_send($order, $to, 'Order confirmed · #' . $order->get_order_number() . ' — thanks, ' . $first . '!', vj_mail_wrap('Payment received. Packing now, ships within 24-48 hours.', 'Payment received', 'Your jersey is confirmed 🎉', 'good', $inner), 'processing');
+}
+
+// v7.4.12: the ~24h "still on track" reassurance email (sent by vj_packing_mail_run).
+// Deliberately navy ('info'), not green — so it reads as a progress update, not a
+// second confirmation — and it does NOT repeat a hard dispatch time.
+function vj_mail_packing($order, $to = '') {
+    $to = $to ?: $order->get_billing_email(); if (!$to) return false;
+    $first = $order->get_billing_first_name() ?: 'there';
+    $inner = vj_mail_p('Hi ' . vj_mail_e($first) . ' 👋 Quick update — your jersey is <b>packed and checked</b>, and it\'s still on track to ship very soon. You\'ll get your <b>tracking number by email</b> the moment it leaves for India Post. Thanks for your patience!')
+        . vj_mail_steps(2)
+        . vj_mail_box($order, array(), true)
+        . vj_mail_btn(vj_mail_order_url($order), 'View my order')
+        . vj_mail_note('Nothing you need to do — this is just a heads-up. If anything about your order or address needs changing, simply reply to this email.', 'info');
+    return vj_mail_send($order, $to, 'Still on track · #' . $order->get_order_number() . ' — your jersey is packed, ' . $first, vj_mail_wrap('Your jersey is packed and still on track to ship very soon.', 'On track', 'Packed and on its way out 📦', 'info', $inner), 'packing');
 }
 
 function vj_mail_shipped($order, $to = '', $reship = false) {
