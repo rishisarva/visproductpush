@@ -96,11 +96,14 @@ jobs:
       # live after you approve them, with your photos, never MS Retro's.
       # Price = MS Retro's wholesale list price for the jersey type (read from
       # the title: half/five/full sleeve, round/collar neck, sublimation/
-      # embroidery) + the 268 margin (--margin 268 = ₹98 shipping we cover for
-      # free + ₹170 our real profit; a Meta-ad order gets ₹50 off and still
-      # nets us ₹120). Their website price is not used. Premium
-      # kits (imported / player version / master) = MS Retro's website price
-      # + 300, unchanged.
+      # embroidery) + the 302 margin (--margin 302). On normal India Post the
+      # shipping we actually pay is ₹82 per order, so a Meta-ad single-jersey
+      # order (₹50 off) nets us exactly ₹170 profit, and a non-ad order ₹220.
+      # (Was 268, which left ad orders at only ₹136 — bumped +₹34 on 16 Nov so
+      # every ad order clears ₹170.) Speed Post is already higher because the
+      # customer pays the ₹90/₹119 fast fee. Their website price is not used.
+      # Premium kits (imported / player version / master) = MS Retro's website
+      # price + 302 (was 300), so those also net ₹170 on an ad order.
       # At most 150 new products per run (the first import finishes in about
       # 3 runs); stock and sizes of EVERY existing product update every run.
       - name: MS Retro (new products wait for your approval)
@@ -120,7 +123,7 @@ jobs:
           --prefix "MS-"
           --review
           --price-table msretro
-          --margin 268
+          --margin 302
           --max-new 150
           --attribute-name "sizes"
           --skip-sold-out

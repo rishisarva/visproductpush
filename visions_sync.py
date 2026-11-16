@@ -213,8 +213,11 @@ def clean_msretro_title(title: str) -> str:
 # Premium kits (the title says imported / player version / master / fan version /
 # premium quality) are not on the price list: they cost MS Retro's own website
 # price + PREMIUM_MARGIN.
+# 302 (was 300) so a premium ad order also clears ₹170 profit on normal post
+# (₹82 shipping, ₹50 ad discount): 302 - 82 - 50 = 170. Bumped 16 Nov with the
+# normal margin (268 -> 302).
 PREMIUM_RX = re.compile(r"\b(imported|player'?s?\s*version|master|fan\s*version|premium\s*quality)\b", re.I)
-PREMIUM_MARGIN = 300.0
+PREMIUM_MARGIN = 302.0
 
 
 def apply_msretro_prices(products: list, margin: float, round_to: int, overrides: dict) -> None:
