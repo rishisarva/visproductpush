@@ -1,0 +1,35 @@
+name: Re-review Master kits
+
+# One-off, manual. Pulls every LIVE "Master" kit (regular-priced ones the premium
+# re-review skipped) off the shop and into Photos -> Review. Run with dry_run = true
+# FIRST to see the list; then dry_run = false to do it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (list only, change nothing)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: shop            # never run at the same time as the hourly sync
+  cancel-in-progress: false
+
+jobs:
+  retier-master:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Pull Master kits into Review
+        env:
+          WC_URL: ${{ secrets.WC_URL }}
+          WC_KEY: ${{ secrets.WC_KEY }}
+          WC_SECRET: ${{ secrets.WC_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python -u retier_master.py ${{ inputs.dry_run && '--dry-run' || '' }}
