@@ -2,8 +2,16 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.12
+ * Version: 7.4.13
  * Author: Visions Jersey
+ *
+ * v7.4.13 · 19 Nov 2026 · DUPLICATE-ORDER FIX (hard). The storefront->WooCommerce
+ * import (vj_pull_shop_orders) is fired by BOTH the per-minute cron and the storefront's
+ * instant ping. With no lock, two runs could grab the same un-imported order at once and
+ * each create a WooCommerce order (duplicates with consecutive numbers, same amount). Now:
+ * (1) a short transient lock stops overlapping imports, and (2) an idempotency check by the
+ * storefront ref skips any row whose ref already became an order — so a retry, double-tap or
+ * second tab can never create a 2nd order (and the Meta pixel never double-counts).
  *
  * v7.4.12 · 16 Nov 2026 · 24-hour "packed / still on track" nudge. About a day
  *   after a paid order that still hasn't shipped, one short reassurance email goes
@@ -720,12 +728,35 @@ add_action('woocommerce_update_product', function ($pid) {
 
 // Storefront orders → real WooCommerce orders.
 function vj_pull_shop_orders() {
+    // v7.4.13 DUPLICATE-ORDER FIX. Both the per-minute cron AND the storefront's instant ping
+    // call this; without a lock two runs can grab the SAME un-done row at once and each create
+    // a WooCommerce order. A short lock stops overlapping imports; the per-ref idempotency
+    // check inside stops a duplicate row ever becoming a second order.
+    if (get_transient('vj_pulling')) return 0;
+    set_transient('vj_pulling', 1, 120);
+    try { return vj_pull_shop_orders_do(); }
+    finally { delete_transient('vj_pulling'); }
+}
+function vj_pull_shop_orders_do() {
     $raw = vj_supa_req('GET', 'shop_orders?done=eq.false&order=created_at.asc&limit=20');
     if (!$raw) return 0;
     $list = json_decode($raw, true);
     if (!is_array($list)) return 0;
     $made = 0;
     foreach ($list as $so) {
+        $ref = isset($so['ref']) ? (string) $so['ref'] : '';
+        // Idempotency by storefront ref: if ANY row with this ref already carries a
+        // woo_order_id, this row is a duplicate — mark it done, point it at the order
+        // that already exists, and never create a second WooCommerce order for it.
+        if ($ref !== '') {
+            $seen = vj_supa_req('GET', 'shop_orders?select=woo_order_id&ref=eq.' . rawurlencode($ref) . '&woo_order_id=not.is.null&limit=1');
+            $seenArr = json_decode((string) $seen, true);
+            if (is_array($seenArr) && !empty($seenArr) && !empty($seenArr[0]['woo_order_id'])) {
+                vj_supa_req('PATCH', 'shop_orders?id=eq.' . rawurlencode($so['id']),
+                    array('done' => true, 'woo_order_id' => (string) $seenArr[0]['woo_order_id'], 'error' => 'duplicate ref — skipped'));
+                continue;
+            }
+        }
         $err = ''; $woo_id = null;
         try {
             $order = wc_create_order();
