@@ -2,8 +2,13 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.15
+ * Version: 7.4.16
  * Author: Visions Jersey
+ *
+ * v7.4.16 · 20 Nov 2026 · PAY0 DIAGNOSTICS. /pay0-create now reports the REAL reason when
+ * pay0.shop refuses (connection error / HTTP code / pay0 message) instead of a blank
+ * "Could not start payment", and the request to pay0 uses a longer timeout + browser-like
+ * headers. Fixes the silent 502 → shop falling back to the UPI QR.
  *
  * v7.4.15 · 20 Nov 2026 · PAY0 PAYMENT GATEWAY (opt-in). Server-side bridge for the custom
  * storefront to take payments via pay0.shop with 0% fees: /wp-json/vj/v1/pay0-create returns
@@ -1559,12 +1564,20 @@ add_action('rest_api_init', function () {
 function vj_pay0_token() { return trim((string) get_option('vj_pay0_token', '')); }
 function vj_pay0_post($endpoint, $fields) {
     $res = wp_remote_post('https://pay0.shop/api/' . $endpoint, array(
-        'timeout' => 25,
-        'headers' => array('Content-Type' => 'application/x-www-form-urlencoded'),
-        'body'    => http_build_query($fields),
+        'timeout'     => 45,
+        'redirection' => 5,
+        'httpversion' => '1.1',
+        'user-agent'  => 'Mozilla/5.0 (compatible; VisionsJersey/1.0; +https://visionsjersey.com)',
+        'headers'     => array('Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'application/json'),
+        'body'        => http_build_query($fields),
     ));
-    if (is_wp_error($res)) return null;
-    return json_decode((string) wp_remote_retrieve_body($res), true);
+    // Keep the real failure reason so /pay0-create can report it instead of a blank 502.
+    if (is_wp_error($res)) { $GLOBALS['vj_pay0_err'] = 'cannot reach pay0.shop: ' . $res->get_error_message(); return null; }
+    $code = (int) wp_remote_retrieve_response_code($res);
+    $body = (string) wp_remote_retrieve_body($res);
+    $json = json_decode($body, true);
+    if (!is_array($json)) { $GLOBALS['vj_pay0_err'] = 'pay0 HTTP ' . $code . ': ' . trim(substr(wp_strip_all_tags($body), 0, 300)); return null; }
+    return $json;
 }
 function vj_pay0_order_row($ref) {
     if ($ref === '') return null;
@@ -1617,7 +1630,8 @@ add_action('rest_api_init', function () {
                 set_transient('vj_pay0_' . $ref, isset($resp['result']['orderId']) ? $resp['result']['orderId'] : $pay0_order_id, 2 * HOUR_IN_SECONDS);
                 return array('ok' => true, 'payment_url' => $resp['result']['payment_url']);
             }
-            return new WP_Error('vj_pay0_fail', is_array($resp) && isset($resp['message']) ? $resp['message'] : 'Could not start payment.', array('status' => 502));
+            $detail = is_array($resp) && isset($resp['message']) ? $resp['message'] : (!empty($GLOBALS['vj_pay0_err']) ? $GLOBALS['vj_pay0_err'] : 'Could not start payment.');
+            return new WP_Error('vj_pay0_fail', $detail, array('status' => 502));
         },
     ));
 
