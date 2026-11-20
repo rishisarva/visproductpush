@@ -2,8 +2,15 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.13
+ * Version: 7.4.14
  * Author: Visions Jersey
+ *
+ * v7.4.14 · 20 Nov 2026 · REVIEW FOLLOW-UP. The delivered email already asks for a photo/
+ * review; this adds ONE gentle reminder ~7 days after delivery to customers who still
+ * haven't left a review (checked against vj_reviews by storefront ref), so good reviews
+ * aren't missed. It also backfills OLDER delivered orders (they go first). One-shot guard
+ * meta _vj_mail_review2; skips anyone who already reviewed or has no email. Tune/disable
+ * with /wp-admin/?vj_review2_days=N (0 = off, default 7).
  *
  * v7.4.13 · 19 Nov 2026 · DUPLICATE-ORDER FIX (hard). The storefront->WooCommerce
  * import (vj_pull_shop_orders) is fired by BOTH the per-minute cron and the storefront's
@@ -3770,6 +3777,65 @@ function vj_packing_mail_run() {
     }
 }
 
+// =====================================================================
+//  REVIEW FOLLOW-UP (v7.4.14). The delivered email already asks for a photo/review. This
+//  sends ONE gentle reminder ~VJ_REVIEW2 days (default 7) after delivery to customers who
+//  still haven't left a review, so good reviews aren't forgotten. Older delivered orders
+//  are picked up too (oldest first — the backlog). Guards so it never double-sends and
+//  never nags a reviewer:
+//      · parcel is delivered (_vj_track_stage = 'delivered')
+//      · delivered at least ~7 days ago (delivered stamp, else the order's last change)
+//      · the customer has NOT already left a review (vj_reviews, matched by storefront ref)
+//      · one-shot guard meta _vj_mail_review2 is unset, and the order has an email
+//  Off with /wp-admin/?vj_review2_days=0 ; default 7.
+// =====================================================================
+add_action('vj_unpaid_check', 'vj_review2_mail_run');
+function vj_review2_mail_run() {
+    $after = (int) get_option('vj_review2_after_days', 7);
+    if (!function_exists('wc_get_orders') || $after < 1) return;   // 0 = feature off
+    $cutoff = time() - $after * DAY_IN_SECONDS;
+    $orders = wc_get_orders(array(
+        'limit'        => 20,
+        'status'       => array('completed'),                      // shipped orders are set to completed
+        'date_created' => '>' . (time() - 150 * DAY_IN_SECONDS),   // backfill window ~5 months
+        'orderby'      => 'date', 'order' => 'ASC',                // oldest delivered first
+    ));
+    foreach ($orders as $o) {
+        if ($o->get_meta('_vj_mail_review2')) continue;                            // already reminded
+        if ($o->get_meta('_vj_track_stage') !== 'delivered') continue;            // only delivered parcels
+        $dt = (int) strtotime((string) $o->get_meta('_vj_delivered_at'));
+        if (!$dt) { $m = $o->get_date_modified(); $dt = $m ? $m->getTimestamp() : 0; }
+        if ($dt && $dt > $cutoff) continue;                                        // delivered recently — wait
+        if (!$o->get_billing_email()) { $o->update_meta_data('_vj_mail_review2', 'skipped-no-email'); $o->save(); continue; }
+        $ref = (string) $o->get_meta('_vj_ref');
+        if ($ref !== '' && vj_has_review($ref)) { $o->update_meta_data('_vj_mail_review2', 'reviewed'); $o->save(); continue; }
+        if (vj_mail_review2($o)) { $o->update_meta_data('_vj_mail_review2', gmdate('c')); $o->save(); }
+    }
+}
+// True if this storefront ref already has a review row in Supabase (don't nag reviewers).
+function vj_has_review($ref) {
+    if ($ref === '') return false;
+    $r = vj_supa_req('GET', 'vj_reviews?select=id&order_ref=eq.' . rawurlencode($ref) . '&limit=1');
+    $a = json_decode((string) $r, true);
+    return is_array($a) && !empty($a);
+}
+// The ~1-week "how's your jersey? leave a quick review" follow-up email.
+function vj_mail_review2($order) {
+    $to = $order->get_billing_email(); if (!$to) return false;
+    $first = $order->get_billing_first_name() ?: 'there';
+    $num = $order->get_order_number();
+    $ref = $order->get_meta('_vj_ref');
+    $review = VJ_MAIL_SHOP . '/review?o=' . rawurlencode($ref ?: (string) $num) . '&n=' . rawurlencode($first);
+    $subject = 'How\'s your jersey, ' . $first . '? ⚽';
+    $inner = vj_mail_p('Hi ' . vj_mail_e($first) . ', it\'s been a few days since your jersey arrived — we hope you\'re loving it! A quick review from you would mean a lot, and it helps other fans buy with confidence.')
+        . '<div style="background:#14161F;border-radius:16px;padding:20px 18px;margin:18px 0;text-align:center">'
+        . '<div style="font-size:18px;font-weight:900;color:#F0E8D5;margin-bottom:6px">Snap it. Share it. Get featured. 📸</div>'
+        . '<div style="font-size:13.5px;line-height:1.55;color:#C9C2B0;margin-bottom:14px">Send one photo in your kit with a line about it — it takes 30 seconds, and the best ones go up on our review wall for thousands of fans to see.</div>'
+        . vj_mail_btn($review, 'Leave a quick review', false) . '</div>'
+        . vj_mail_p('Already sent one? Thank you so much — just ignore this. 🙏', true);
+    return vj_mail_send($order, $to, $subject, vj_mail_wrap('How\'s your new jersey? A quick review would mean a lot.', 'Your review', 'Loving your jersey, ' . vj_mail_e($first) . '?', 'good', $inner), 'review2');
+}
+
 // ---------- building blocks ----------
 function vj_mail_e($s) { return esc_html((string) $s); }
 function vj_mail_order_url($order) { $ref = $order->get_meta('_vj_ref'); return VJ_MAIL_SHOP . ($ref ? '/order/' . rawurlencode($ref) : '/account'); }
@@ -3902,7 +3968,7 @@ add_action('init', function () {
 });
 function vj_mail_priority($tag) {
     $t = preg_replace('/-.*$/', '', (string) $tag);
-    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'packing' => 75, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30, 'remind' => 30);   // v6.9: ticket = "we replied" · v7.1: refund / exchange · v7.4.5: remind = retargeting · v7.4.12: packing = 24h "still on track"
+    $p = array('processing' => 100, 'out' => 90, 'failed' => 90, 'refund' => 88, 'exchange' => 88, 'ticket' => 85, 'shipped' => 80, 'packing' => 75, 'rto' => 70, 'returning' => 60, 'delivered' => 50, 'unpaid' => 30, 'remind' => 30, 'review2' => 20);   // v6.9: ticket = "we replied" · v7.1: refund / exchange · v7.4.5: remind = retargeting · v7.4.12: packing = 24h "still on track" · v7.4.14: review2 = 1-week review nudge (lowest)
     return isset($p[$t]) ? $p[$t] : 10;
 }
 function vj_mail_ttl_hours($tag) {
