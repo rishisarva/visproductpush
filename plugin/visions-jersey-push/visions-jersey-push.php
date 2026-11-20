@@ -2,8 +2,14 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.16
+ * Version: 7.4.17
  * Author: Visions Jersey
+ *
+ * v7.4.17 · 20 Nov 2026 · PAY0 VIA EDGE. Pay0's anti-bot wall blocks this server, so the
+ * create + verify now run in a Supabase edge function (vj-pay0) that CAN reach Pay0. It
+ * confirms a payment by queueing a new `paid` woo_command, which completes the WooCommerce
+ * order the canonical way (payment_complete → confirmation email, Meta Purchase, Telegram).
+ * The old /pay0-create + /pay0-webhook stay for reference but are no longer the live path.
  *
  * v7.4.16 · 20 Nov 2026 · PAY0 DIAGNOSTICS. /pay0-create now reports the REAL reason when
  * pay0.shop refuses (connection error / HTTP code / pay0 message) instead of a blank
@@ -574,6 +580,16 @@ function vj_supa_run_commands() {
             if ($order) {
                 if ($c['action'] === 'status' && !empty($c['params']['status'])) {
                     $order->update_status(sanitize_key($c['params']['status']), 'Via Visions Jersey app (Supabase bridge)');
+                    $ok = true;
+                } elseif ($c['action'] === 'paid') {
+                    // v7.4.17: a payment confirmed on the edge (Pay0, verified) — complete
+                    // the order the canonical way so the confirmation email, the Meta
+                    // Purchase and the storefront push all fire, exactly like every order.
+                    if (in_array($order->get_status(), array('pending', 'on-hold', 'failed'), true)) {
+                        $utr = !empty($c['params']['utr']) ? sanitize_text_field($c['params']['utr']) : '';
+                        $order->payment_complete($utr);
+                        $order->add_order_note('Paid via ' . (!empty($c['params']['source']) ? sanitize_text_field($c['params']['source']) : 'gateway') . ($utr ? ' · UTR ' . $utr : '') . ' (verified on the edge).');
+                    }
                     $ok = true;
                 } elseif ($c['action'] === 'refund' && isset($c['params']['amount'])) {
                     $r = wc_create_refund(array('order_id' => $order->get_id(), 'amount' => (float) $c['params']['amount'], 'reason' => isset($c['params']['reason']) ? sanitize_text_field($c['params']['reason']) : ''));
