@@ -2,8 +2,15 @@
 /**
  * Plugin Name: Visions Jersey Push
  * Description: Instant order push notifications + secure issue-email endpoint for the Visions Jersey app.
- * Version: 7.4.14
+ * Version: 7.4.15
  * Author: Visions Jersey
+ *
+ * v7.4.15 · 20 Nov 2026 · PAY0 PAYMENT GATEWAY (opt-in). Server-side bridge for the custom
+ * storefront to take payments via pay0.shop with 0% fees: /wp-json/vj/v1/pay0-create returns
+ * a payment link, pay0 confirms to /wp-json/vj/v1/pay0-webhook, which VERIFIES with pay0 and
+ * marks the order paid through the normal path (payment_complete → confirmation email, Meta,
+ * Telegram, desk). API key set at /wp-admin/?vj_pay0_token=KEY. Dormant unless the storefront
+ * flips its PAYMENT_MODE to pay0 — the UPI-QR flow is untouched and reversible.
  *
  * v7.4.14 · 20 Nov 2026 · REVIEW FOLLOW-UP. The delivered email already asks for a photo/
  * review; this adds ONE gentle reminder ~7 days after delivery to customers who still
@@ -1535,6 +1542,118 @@ add_action('rest_api_init', function () {
                . '<p style="color:#666;font-size:13px">Status: ' . esc_html(wc_get_order_status_name($order->get_status())) . '</p>'
                . '</div>';
             exit;
+        },
+    ));
+});
+
+// =====================================================================
+//  PAY0 PAYMENT GATEWAY (v7.4.15). A server-side bridge so the custom storefront can
+//  take payments through pay0.shop WITHOUT ever exposing the API key in the browser.
+//  Flow: storefront -> /pay0-create (returns a pay0 payment link) -> customer pays ->
+//  pay0 POSTs /pay0-webhook -> we VERIFY with pay0 and mark the order paid through the
+//  SAME path as every other payment (payment_complete -> confirmation email, Meta,
+//  Telegram, the desk). Set the key once at /wp-admin/?vj_pay0_token=YOUR_KEY . Nothing
+//  here fires unless the storefront chooses pay0 (its PAYMENT_MODE flag), so the UPI-QR
+//  flow stays untouched and reversible.
+// =====================================================================
+function vj_pay0_token() { return trim((string) get_option('vj_pay0_token', '')); }
+function vj_pay0_post($endpoint, $fields) {
+    $res = wp_remote_post('https://pay0.shop/api/' . $endpoint, array(
+        'timeout' => 25,
+        'headers' => array('Content-Type' => 'application/x-www-form-urlencoded'),
+        'body'    => http_build_query($fields),
+    ));
+    if (is_wp_error($res)) return null;
+    return json_decode((string) wp_remote_retrieve_body($res), true);
+}
+function vj_pay0_order_row($ref) {
+    if ($ref === '') return null;
+    $raw = vj_supa_req('GET', 'shop_orders?select=ref,total,pay_amount,customer,status,paid_at,woo_order_id&ref=eq.' . rawurlencode($ref) . '&limit=1');
+    $a = json_decode((string) $raw, true);
+    return (is_array($a) && !empty($a)) ? $a[0] : null;
+}
+// Set the API key: /wp-admin/?vj_pay0_token=YOUR_KEY  (admins only). Shows the webhook URL.
+add_action('admin_init', function () {
+    if (isset($_GET['vj_pay0_token']) && current_user_can('manage_options')) {
+        update_option('vj_pay0_token', sanitize_text_field(wp_unslash($_GET['vj_pay0_token'])), false);
+        wp_die('Pay0 API key saved.<br><br><b>Webhook URL</b> (paste into pay0.shop &rsaquo; API Credentials &rsaquo; Webhook):<br><code>' . esc_html(rest_url('vj/v1/pay0-webhook')) . '</code>', 'VJ Pay0');
+    }
+});
+
+add_action('rest_api_init', function () {
+    // The storefront calls this to start a pay0 payment for a real, unpaid order.
+    register_rest_route('vj/v1', '/pay0-create', array(
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => function ($req) {
+            $token = vj_pay0_token();
+            if ($token === '') return new WP_Error('vj_pay0_off', 'Pay0 not configured.', array('status' => 400));
+            $ref = sanitize_text_field((string) $req->get_param('ref'));
+            $row = vj_pay0_order_row($ref);
+            if (!$row) return new WP_Error('vj_pay0_noorder', 'Order not found.', array('status' => 404));
+            if (!empty($row['paid_at']) || in_array(($row['status'] ?? ''), array('paid', 'processing', 'completed'), true)) {
+                return new WP_Error('vj_pay0_paid', 'Order already paid.', array('status' => 409));
+            }
+            $amount = (float) (!empty($row['pay_amount']) ? $row['pay_amount'] : $row['total']);
+            if ($amount <= 0) return new WP_Error('vj_pay0_amt', 'Bad amount.', array('status' => 400));
+            $cust = is_array($row['customer']) ? $row['customer'] : array();
+            $name = isset($cust['name']) && $cust['name'] !== '' ? (string) $cust['name'] : 'Customer';
+            $phone = preg_replace('/\D/', '', isset($cust['phone']) ? (string) $cust['phone'] : '');
+            if (strlen($phone) < 10) $phone = '9999999999';
+            $redirect = esc_url_raw((string) $req->get_param('redirect_url'));
+            if (strpos($redirect, 'shop.visionsjersey.com') === false) $redirect = 'https://shop.visionsjersey.com/';   // only our own site
+            $pay0_order_id = $ref . '-' . substr(uniqid(), -6);
+            $resp = vj_pay0_post('create-order', array(
+                'customer_mobile' => $phone,
+                'customer_name'   => $name,
+                'user_token'      => $token,
+                'amount'          => $amount,
+                'order_id'        => $pay0_order_id,
+                'redirect_url'    => $redirect,
+                'remark1'         => $ref,
+                'remark2'         => (string) ($row['woo_order_id'] ?? ''),
+            ));
+            if (is_array($resp) && !empty($resp['status']) && !empty($resp['result']['payment_url'])) {
+                set_transient('vj_pay0_' . $ref, isset($resp['result']['orderId']) ? $resp['result']['orderId'] : $pay0_order_id, 2 * HOUR_IN_SECONDS);
+                return array('ok' => true, 'payment_url' => $resp['result']['payment_url']);
+            }
+            return new WP_Error('vj_pay0_fail', is_array($resp) && isset($resp['message']) ? $resp['message'] : 'Could not start payment.', array('status' => 502));
+        },
+    ));
+
+    // pay0 POSTs the payment result here. Set this as the Webhook URL in pay0.
+    register_rest_route('vj/v1', '/pay0-webhook', array(
+        'methods' => 'POST',
+        'permission_callback' => '__return_true',
+        'callback' => function ($req) {
+            $status = strtoupper((string) $req->get_param('status'));
+            $ref    = sanitize_text_field((string) $req->get_param('remark1'));
+            if ($ref === '') return new WP_REST_Response(array('ok' => false, 'reason' => 'no ref'), 200);
+            // Never trust the webhook body alone — verify straight with pay0.
+            $pay0_order_id = get_transient('vj_pay0_' . $ref);
+            if ($pay0_order_id) {
+                $chk = vj_pay0_post('check-order-status', array('user_token' => vj_pay0_token(), 'order_id' => $pay0_order_id));
+                if (is_array($chk) && isset($chk['result']['txnStatus'])) $status = strtoupper((string) $chk['result']['txnStatus']);
+            }
+            if ($status !== 'SUCCESS') return new WP_REST_Response(array('ok' => true, 'status' => $status), 200);   // pending/failed → nothing to do
+            // Make sure the WooCommerce order exists, then mark it paid the normal way.
+            if (function_exists('vj_pull_shop_orders')) vj_pull_shop_orders();
+            $row = vj_pay0_order_row($ref);
+            $woo_id = $row ? absint($row['woo_order_id']) : 0;
+            if ($woo_id) {
+                $order = wc_get_order($woo_id);
+                if ($order && in_array($order->get_status(), array('pending', 'on-hold', 'failed'), true)) {
+                    $utr = sanitize_text_field((string) $req->get_param('utr'));
+                    $order->payment_complete($utr);                       // → confirmation email, Meta, storefront push, Telegram
+                    $order->add_order_note('Paid via Pay0' . ($utr ? ' · UTR ' . $utr : '') . '.');
+                }
+            }
+            // belt-and-braces: stamp the storefront row paid + exact amount (no-op if already paid).
+            $amt = (float) $req->get_param('amount');
+            $patch = array('status' => 'paid', 'paid_at' => gmdate('c'));
+            if ($amt > 0) $patch['pay_amount'] = $amt;
+            vj_supa_req('PATCH', 'shop_orders?ref=eq.' . rawurlencode($ref), $patch);
+            return new WP_REST_Response(array('ok' => true, 'status' => 'SUCCESS'), 200);
         },
     ));
 });
